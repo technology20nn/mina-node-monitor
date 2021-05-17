@@ -1,5 +1,5 @@
 <p align="center">
-    <img src="https://metroui.org.ua/res/node-monitor.jpg">
+    <img src="https://metroui.org.ua/res/node-monitor-11-05-2021-2.jpg">
 </p> 
 
 # Mina Node Monitor
@@ -10,6 +10,7 @@
 2. Shows 12 parameters: status, uptime, balance, ...
 3. Shows the load on memory, processor, network
 4. Monitors the state of the node and, if the node is out of sync with the main network and / or has switched / is in a status other than SYNCED, sends notifications to Telegram
+5. Restart node when de-sync discovered
 
 #### Monitor built with a stack:
 - server - NodeJS, JavaScript
@@ -24,7 +25,9 @@
 ## How to use
 
 ### Pre-requirements
-To use or/and build monitor you need install `NodeJS`, `npm`.
+To use or/and build monitor you need install `NodeJS`, `npm`. 
+
+**Important!** For assembling use the only Parcel 1.x! 
 
 #### Clone repository
 ```shell
@@ -88,6 +91,9 @@ Create file `config.json` in a `server` folder. Example below demonstrate witch 
     "balanceSendInterval": 86400000,
     "alertInterval": 60000,
     "blockDiff": 2,
+    "canRestartNode": true,
+    "restartAfter": 30,
+    "restartCmd": "systemctl --user restart mina",
     "host": "192.168.1.2:3085",
     "graphql": "localhost:3085"
 }
@@ -104,6 +110,9 @@ where
 - `blockDiff` - difference in blocks with MinaExplorer at which an alert will be sent
 - `host` - IP and PORT on which the server will run
 - `graphql` - Mina node GraphQL address
+- `canRestartNode` - if true, server can restart mina node
+- `restartAfter` - value in minutes, if node synced and height is lower from Mina Explorer within the specified time, node will restart after this interval
+- `restartCmd` - command for restart mina node
 
 ### Build web client
 To build client use command: 

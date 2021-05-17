@@ -13,7 +13,7 @@
         <div class="row">
             <div class="cell-md-3">
                 <div class="logo-container h-100 d-flex flex-align-center flex-justify-center flex-justify-start-md">
-                    <div class="h5 text-light"><img class="logo" src="images/logo.png"> <span class="fg-white">NODE</span><span class="fg-orange">MONITOR</span></div>
+                    <div class="h5 text-light"><img class="logo" src="images/logo.png"> <span class="fg-white">MINA</span><span class="fg-orange">MONITOR</span></div>
                 </div>
             </div>
             <div class="cell-md-6">
@@ -21,7 +21,6 @@
                     <div class="text-small">Next block will be produce at</div>
                     <span id="next-block-time" class="h3 m-0 fg-white text-bold">Calculating...</span>
                     <div class="text-small"><span id="next-block-left" class="fg-yellow"></span></div>
-                    <div class="text-small"><span id="end-of-epoch" class="fg-orange"></span></div>
                 </div>
             </div>
             <div class="cell-md-3">
@@ -60,7 +59,7 @@
                 <div data-role="panel" data-title-caption="STATUS" id="status-panel">
                     <div class="fg-stroke d-flex flex-justify-center flex-align-center flex-column">
                         <div id="node-status" class="text-center fg-stroke">UNKNOWN</div>
-                        <div id="network-status" class="text-small fg-white"></div>
+                        <div id="network-status" class="text-small fg-white">UNKNOWN</div>
                     </div>
                 </div>
             </div>
@@ -88,12 +87,14 @@
                 <div data-role="panel" data-title-caption="BALANCE">
                     <div class="fg-stroke d-flex flex-justify-center flex-align-center flex-column">
                         <div id="balance-total" class="text-center h2 m-0 fg-cyan">0</div>
-                        <div id="balance-liquid" class="text-small text-center">0</div>
+                        <div>
+                            <span class="text-small text-muted">liquid: </span><span id="balance-liquid" class="text-small text-center text-bold">0</span>
+                        </div>
                     </div>
                 </div>
             </div>
             <div class="cell-md-6 cell-lg-3">
-                <div data-role="panel" data-title-caption="TOTAL CURRENCY">
+                <div data-role="panel" data-title-caption="TOTAL SUPPLY">
                     <div class="fg-stroke d-flex flex-justify-center flex-align-center flex-column">
                         <div id="currency-total" class="text-center h3 m-0 fg-cyan">0</div>
                     </div>
@@ -103,6 +104,10 @@
                 <div data-role="panel" data-title-caption="EPOCH">
                     <div class="fg-stroke d-flex flex-justify-center flex-align-center flex-column">
                         <div id="epoch-number" class="text-center h2 m-0 fg-cyan">0</div>
+                        <div class="text-small"><span id="end-of-epoch" class="fg-orange">calculating...</span></div>
+                        <div class="w-100 pl-10 pr-10 pt-1">
+                            <div data-role="progress" id="epoch-progress" data-small="true" data-cls-back="progress-back" data-cls-bar="progress-bar"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -155,11 +160,11 @@
                     <table class="table text-small info-table">
                         <tr>
                             <td>IP address</td>
-                            <td class="text-right"><span id="ip-address">___.___.___</span></td>
+                            <td class="text-right"><span id="ip-address">---.---.---.---</span></td>
                         </tr>
                         <tr>
                             <td>Bind IP</td>
-                            <td class="text-right"><span id="bind-ip">___.___.___</span></td>
+                            <td class="text-right"><span id="bind-ip">---.---.---.---</span></td>
                         </tr>
                         <tr>
                             <td>P2P port</td>
@@ -168,6 +173,14 @@
                         <tr>
                             <td>Client port</td>
                             <td class="text-right"><span id="client-port">0000</span></td>
+                        </tr>
+                        <tr>
+                            <td colspan="2">
+                                <div class="pt-4">
+                                    <div class="text-center text-small text-muted">Network Connections</div>
+                                    <div class="h2 m-0 text-center fg-cyan" id="network-connections">0</div>
+                                </div>
+                            </td>
                         </tr>
                     </table>
                 </div>

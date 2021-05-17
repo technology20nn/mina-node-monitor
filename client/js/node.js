@@ -1,33 +1,34 @@
 import 'regenerator-runtime/runtime' // this required for Parcel
 import {getInfo} from "./helpers/get-info"
-import {getFakeData, getFakeHistogramData, getFakeHistogramData2} from "./helpers/get-fake-data"
+import {getFakeTriplets} from "./helpers/get-fake-data"
 import {defaultChartConfig} from "./helpers/chart-config"
-import {merge} from "./helpers/merge";
 import {imgOk, imgStop} from "./helpers/const";
 
-const graphSize = 40
-const chartConfig = merge({}, defaultChartConfig, {
+const graphSize = 20
+let START_NODE_MON = datetime()
+let START_NODE_POINTS = 200
+let peersChart = chart.histogramChart('#peers-load', [
+    {
+        name: "Peers",
+        data: getFakeTriplets(20, 40, 60, 0)
+    },
+], {
+    ...defaultChartConfig,
     bars: {
         stroke: '#22272e'
     },
     boundaries: {
-        maxY: 150
+        maxY: 200,
+        minY: 0
     },
     graphSize,
     onDrawLabelX: (v) => {
-        return `${datetime(+v).format("HH:mm:ss")}`
+        return ""
     },
     onDrawLabelY: (v) => {
         return `${v}`
     }
 })
-
-const peersChart = chart.lineChart("#peers-load", [
-    {
-        name: "Peers",
-        data: getFakeData(graphSize)
-    },
-], chartConfig);
 
 const getNodeStatus = async () => await getInfo('node-status')
 const getExplorerSummary = async () => await getInfo('explorer')
@@ -99,7 +100,7 @@ export const processNodeStatus = async () => {
 
         const node = status.data
         const version = node.version
-        const netSyncStatus = node.syncStatus
+        const netStatus = node.syncStatus
         const daemon = node.daemonStatus
 
         const {
@@ -141,6 +142,7 @@ export const processNodeStatus = async () => {
         elNodeVersion.text(version)
 
         // node status
+        elNetStatus.text(netStatus)
         elNodeStatus.closest(".panel").removeClass("alert warning")
         elNodeStatus.text(syncStatus)
         if (syncStatus === 'CATCHUP') {
@@ -148,10 +150,12 @@ export const processNodeStatus = async () => {
         } else if (syncStatus !== 'SYNCED') {
             elNodeStatus.closest(".panel").addClass("alert")
         }
-        elNetStatus.text(netSyncStatus)
+
+        START_NODE_POINTS += 10
+        peersChart.addTriplet(0, [START_NODE_POINTS - 10, START_NODE_POINTS, peers.length])
 
         // peers
-        peersChart.addPoint(0, [datetime().time(), peers.length])
+        // peersChart.addPoint(0, [datetime().time(), peers.length])
         elPeersCount.text(peers.length)
 
         // next block produce
@@ -162,7 +166,7 @@ export const processNodeStatus = async () => {
             elNextBlockTime.text(blockDate.format("ddd, DD MMM, HH:mm"))
             elNextBlockLeft.text(`${blockLeft.d} day(s) ${blockLeft.h} hour(s) ${blockLeft.m} minute(s)`)
         } else {
-            elNextBlockTime.text(netSyncStatus === 'BOOTSTRAP' ? 'No data available' : 'None this epoch')
+            elNextBlockTime.text(syncStatus === 'BOOTSTRAP' ? 'No data available' : 'None this epoch')
             elNextBlockLeft.text('')
         }
 
@@ -170,7 +174,7 @@ export const processNodeStatus = async () => {
         const blockLeft = Metro.utils.secondsToTime(
             (datetime(genesisStart).addSecond(secondsInEpoch * (+consensusTimeNow.epoch + 1)).time() - datetime().time()) / 1000
         )
-        elEndOfEpoch.text(`End of epoch in ${blockLeft.d}d ${blockLeft.h}h ${blockLeft.m}m`)
+        elEndOfEpoch.text(`will end in ${blockLeft.d}d ${blockLeft.h}h ${blockLeft.m}m`)
 
 
         // block height
