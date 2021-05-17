@@ -19,7 +19,12 @@ if (!fs.existsSync(configPath)) {
 }
 
 const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
-const _SERVER = config.host.split(":")
+const [SERVER_HOST, SERVER_PORT] = config.host.split(":")
+
+globalThis.restartTimer = 0
+globalThis.restartTimerNotSynced = 0
+globalThis.currentBalance = 0
+globalThis.currentHeight = 0
 
 const requestListener = async (req, res) => {
     let response
@@ -43,6 +48,7 @@ const requestListener = async (req, res) => {
         case '/balance': response = await nodeInfo('balance', config); break;
         case '/blockchain': response = await nodeInfo('blockchain', config); break;
         case '/explorer': response = await getExplorerSummary(); break;
+        case '/consensus': response = await nodeInfo('consensus', config); break;
         default:
             response = "OK"
     }
@@ -52,8 +58,8 @@ const requestListener = async (req, res) => {
 
 const server = http.createServer(requestListener)
 
-server.listen(+_SERVER[1], _SERVER[0], () => {
-    console.log(`Mina Node Server Monitor is running on http://${_SERVER[0]}:${_SERVER[1]}`)
+server.listen(+SERVER_PORT, SERVER_HOST, () => {
+    console.log(`Mina Node Server Monitor is running on http://${SERVER_HOST}:${SERVER_PORT}`)
 })
 
 setTimeout( () => processHello(config), 0)
