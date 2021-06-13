@@ -48,24 +48,28 @@
       }
     };
 
+    var defaultMargin = {
+      top: 0,
+      bottom: 0,
+      left: 0,
+      right: 0
+    };
+
+    var defaultPadding = {
+      top: 0,
+      bottom: 0,
+      left: 0,
+      right: 0
+    };
+
     var defaultLegend = {
       rtl: false,
-      margin: {
-        top: 20,
-        left: 0,
-        right: 0,
-        bottom: 0
-      },
-      padding: {
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0
-      },
+      margin: defaultMargin,
+      padding: defaultPadding,
       font: labelFont,
       border: defaultBorder,
       dash: [],
-      color: '#fff',
+      background: '#fff',
       vertical: false,
       position: 'top-left' // top-left, top-right, bottom-left, bottom-right, top-center, bottom-center
 
@@ -92,21 +96,7 @@
       }
     };
 
-    var defaultPadding = {
-      top: 40,
-      bottom: 40,
-      left: 40,
-      right: 40
-    };
-
-    var defaultMargin = {
-      top: 0,
-      bottom: 0,
-      left: 0,
-      right: 0
-    };
-
-    var StandardColorPalette = {
+    var defaultColors = {
       aliceBlue: "#f0f8ff",
       antiqueWhite: "#faebd7",
       aqua: "#00ffff",
@@ -254,7 +244,12 @@
       dpi: 1,
       height: 200,
       width: "100%",
-      padding: defaultPadding,
+      padding: {
+        top: 40,
+        left: 40,
+        right: 40,
+        bottom: 40
+      },
       margin: defaultMargin,
       background: '#fff',
       color: '#000',
@@ -264,8 +259,7 @@
       legend: defaultLegend,
       tooltip: defaultTooltip,
       boundaries: false,
-      accuracy: 2,
-      colors: Object.values(StandardColorPalette),
+      colors: Object.values(defaultColors),
       animate: false,
       onDrawLabelY: null,
       onDrawLabelX: null,
@@ -349,7 +343,7 @@
       ctx.strokeStyle = stroke;
       ctx.font = "".concat(style, " ").concat(weight, " ").concat(size, "px/").concat(lineHeight, " ").concat(family);
       ctx.translate(tX, tY);
-      ctx.rotate(angle);
+      ctx.rotate(angle * Math.PI / 180);
       ctx.textBaseline = baseLine;
       var lines = text.toString().split('\n');
       lines.map((str, i) => {
@@ -464,27 +458,27 @@
       legendHorizontal() {
         var o = this.options,
             padding = expandPadding(o.padding),
-            legend = o.legend,
-            legendPadding = expandPadding(legend.padding),
-            legendMargin = expandMargin(legend.margin);
+            legend = o.legend;
+        var ctx = this.ctx;
+        var items = this.legendItems;
+        if (!legend || !isObject(legend)) return;
+        if (!items || !Array.isArray(items) || !items.length) return;
+        var legendPadding = expandPadding(legend.padding);
+        var legendMargin = expandMargin(legend.margin);
         var lh,
             x,
             y,
             magic = 5,
             box;
-        var ctx = this.ctx;
-        var items = this.legendItems;
         var offset = 0;
-        if (!legend || !isObject(legend)) return;
-        if (!items || !Array.isArray(items) || !items.length) return;
         box = legend.font.size / 2;
         lh = legend.font.size * legend.font.lineHeight;
-        y = padding.top + this.viewHeight + legend.font.size + legendPadding.top + legendMargin.top;
+        y = padding.top + this.viewHeight + (legend.font.size + legendPadding.top + legendMargin.top);
         x = padding.left + legendPadding.left + legendMargin.left;
 
         for (var i = 0; i < items.length; i++) {
-          var [name] = items[i];
-          offset += getTextBoxWidth(ctx, [[name]], {
+          var [name, _, value] = items[i];
+          offset += getTextBoxWidth(ctx, [[legend.showValue ? "".concat(name, " - ").concat(value) : name]], {
             font: legend.font
           }) + box * 2 + magic;
         }
@@ -492,8 +486,8 @@
         offset = (this.viewWidth - offset) / 2;
 
         for (var _i = 0; _i < items.length; _i++) {
-          var [_name, color] = items[_i];
-          var nameWidth = getTextBoxWidth(ctx, [[_name]], {
+          var [_name, color, _value] = items[_i];
+          var nameWidth = getTextBoxWidth(ctx, [[legend.showValue ? "".concat(_name, " - ").concat(_value) : _name]], {
             font: legend.font
           });
 
@@ -506,7 +500,7 @@
             color,
             fill: color
           });
-          drawText(ctx, _name, [offset + x + box + magic, y + box / 2], {
+          drawText(ctx, legend.showValue ? "".concat(_name, " - ").concat(_value) : _name, [offset + x + box + magic, y + box / 2], {
             color: legend.font.color,
             stroke: legend.font.color,
             font: o.font
@@ -541,21 +535,21 @@
         textBoxHeight = items.length * lh + legendPadding.top + legendPadding.bottom + magic;
 
         if (legend.position === 'top-left') {
-          x = padding.left + legendMargin.left;
-          y = padding.top + legendMargin.top;
+          x = legendPadding.left + legendMargin.left;
+          y = legendPadding.top + legendMargin.top;
         } else if (legend.position === 'top-right') {
           x = this.dpiWidth - textBoxWidth - legendMargin.right - padding.right;
-          y = padding.top + legendMargin.top;
+          y = legendPadding.top + legendMargin.top;
         } else if (legend.position === 'bottom-left') {
-          x = padding.left + legendMargin.left;
-          y = this.dpiHeight - textBoxHeight - padding.bottom + legendMargin.bottom;
+          x = legendPadding.left + legendMargin.left;
+          y = this.dpiHeight - textBoxHeight - legendPadding.bottom - legendMargin.bottom;
         } else {
-          x = this.dpiWidth - textBoxWidth - legendMargin.right - padding.right;
-          y = this.dpiHeight - textBoxHeight - padding.bottom + legendMargin.bottom;
+          x = this.dpiWidth - textBoxWidth - legendMargin.right - legendPadding.right;
+          y = this.dpiHeight - textBoxHeight - legendPadding.bottom - legendMargin.bottom;
         }
 
         drawBox(ctx, [x, y, textBoxWidth, textBoxHeight], {
-          color: legend.color,
+          color: legend.background,
           dash: legend.dash,
           size: legend.border.width,
           borderColor: legend.border.color
@@ -564,14 +558,14 @@
         y += box + magic + legendPadding.top;
 
         for (var i = 0; i < items.length; i++) {
-          var [name, color] = items[i];
+          var [name, color, value] = items[i];
           drawSquare(ctx, [x, y, box], {
             color,
             fill: color
           });
-          drawText(ctx, name, [x + box + magic, y + 1], {
-            color: o.font.color,
-            stroke: o.font.color,
+          drawText(ctx, legend.showValue ? "".concat(name, " - ").concat(value) : name, [x + box + magic, y + 1], {
+            color: legend.font.color,
+            stroke: legend.font.color,
             font: legend.font
           });
           y += lh;
@@ -688,8 +682,9 @@
         height = o.height.toString().includes('%') ? elHeight / 100 * parseInt(o.height) : +o.height;
         this.width = width;
         this.height = height;
-        this.dpiHeight = o.dpi * height;
-        this.dpiWidth = o.dpi * width;
+        this.dpi = o.dpi;
+        this.dpiHeight = this.dpi * height;
+        this.dpiWidth = this.dpi * width;
         this.viewHeight = this.dpiHeight - (padding.top + padding.bottom);
         this.viewWidth = this.dpiWidth - (padding.left + padding.right);
         this.center = [this.dpiWidth / 2, this.dpiHeight / 2];
@@ -744,13 +739,31 @@
       }
 
       setData(data, index) {
+        var redraw = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : true;
+
         if (typeof index !== "undefined") {
           this.data[index].data = data;
         } else {
           this.data = data;
         }
 
-        this.draw();
+        if (redraw) this.resize();
+      }
+
+      setBoundaries(obj) {
+        var redraw = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : true;
+        var grantedKeys = ["minX", "minY", "minZ", "maxX", "maxY", "maxZ", "min", "max"];
+
+        for (var k in obj) {
+          if (grantedKeys.includes(k)) {
+            this[k] = obj[k];
+            this.options.boundaries[k] = obj[k];
+          }
+        }
+
+        if (redraw) {
+          this.draw();
+        }
       }
 
       mouseMove(e) {
@@ -803,38 +816,89 @@
     Object.assign(Chart.prototype, MixinLegend);
     Object.assign(Chart.prototype, MixinTooltip);
 
-    var arrow = {
-      color: '#000',
-      size: 1,
-      dash: [],
-      factorX: 5,
-      factorY: 5
-    };
+    function _defineProperty(obj, key, value) {
+      if (key in obj) {
+        Object.defineProperty(obj, key, {
+          value: value,
+          enumerable: true,
+          configurable: true,
+          writable: true
+        });
+      } else {
+        obj[key] = value;
+      }
+
+      return obj;
+    }
+
+    function ownKeys(object, enumerableOnly) {
+      var keys = Object.keys(object);
+
+      if (Object.getOwnPropertySymbols) {
+        var symbols = Object.getOwnPropertySymbols(object);
+        if (enumerableOnly) symbols = symbols.filter(function (sym) {
+          return Object.getOwnPropertyDescriptor(object, sym).enumerable;
+        });
+        keys.push.apply(keys, symbols);
+      }
+
+      return keys;
+    }
+
+    function _objectSpread2(target) {
+      for (var i = 1; i < arguments.length; i++) {
+        var source = arguments[i] != null ? arguments[i] : {};
+
+        if (i % 2) {
+          ownKeys(Object(source), true).forEach(function (key) {
+            _defineProperty(target, key, source[key]);
+          });
+        } else if (Object.getOwnPropertyDescriptors) {
+          Object.defineProperties(target, Object.getOwnPropertyDescriptors(source));
+        } else {
+          ownKeys(Object(source)).forEach(function (key) {
+            Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key));
+          });
+        }
+      }
+
+      return target;
+    }
+
     var line = {
       color: '#e3e3e3',
       size: 1,
       dash: [],
-      count: 5,
-      show: true
+      shortLineSize: 5
     };
     var label = {
       color: '#000',
       font: labelFont,
       count: 5,
-      // odd, even, num
-      show: true,
-      first: true,
-      last: true,
-      fixed: false
+      fixed: false,
+      opposite: false,
+      angle: 0,
+      align: 'center',
+      shift: {
+        x: 0,
+        y: 0
+      },
+      skip: 0,
+      showLine: true,
+      showLabel: true,
+      showMin: true
     };
     var axis = {
-      arrow,
       line,
       label
     };
     var defaultAxis = {
       x: axis,
-      y: axis
+      y: _objectSpread2(_objectSpread2({}, axis), {}, {
+        label: _objectSpread2(_objectSpread2({}, label), {}, {
+          align: 'right'
+        })
+      })
     };
 
     var defaultCross = {
@@ -843,10 +907,25 @@
       dash: [5, 3]
     };
 
+    var defaultArrow = {
+      color: '#7d7d7d',
+      size: 1,
+      dash: [],
+      factorX: 5,
+      factorY: 5,
+      outside: 0
+    };
+    var defaultArrows = {
+      x: defaultArrow,
+      y: defaultArrow
+    };
+
     var defaultAreaChartOptions = {
       axis: defaultAxis,
       cross: defaultCross,
-      showDots: true
+      showDots: true,
+      accuracy: 2,
+      arrows: defaultArrows
     };
 
     var minMax = function minMax() {
@@ -1012,27 +1091,6 @@
 
     };
 
-    var drawArrowX = function drawArrowX(ctx, _ref) {
-      var [x1, y1, x2, y2, factorX, factorY] = _ref;
-      var {
-        color = '#000',
-        dash = [],
-        size = 1
-      } = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
-      ctx.beginPath();
-      ctx.strokeStyle = color;
-      ctx.lineWidth = size;
-      ctx.setLineDash(dash);
-      ctx.moveTo(x1, y1);
-      ctx.lineTo(x2, y2);
-      ctx.moveTo(x2, y2);
-      ctx.lineTo(x2 - factorX, y2 - factorY);
-      ctx.moveTo(x2, y2);
-      ctx.lineTo(x2 - factorX, y2 + factorY);
-      ctx.stroke();
-      ctx.closePath();
-    };
-
     var drawVector = function drawVector(ctx, _ref) {
       var [x1, y1, x2, y2] = _ref;
       var {
@@ -1052,202 +1110,185 @@
       ctx.closePath();
     };
 
-    var drawArrowY = function drawArrowY(ctx, _ref) {
-      var [x1, y1, x2, y2, factorX, factorY] = _ref;
-      var {
-        color = '#000',
-        dash = [],
-        size = 1
-      } = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
-      ctx.beginPath();
-      ctx.strokeStyle = color;
-      ctx.lineWidth = size;
-      ctx.setLineDash(dash);
-      ctx.moveTo(x1, y1);
-      ctx.lineTo(x2, y2);
-      ctx.moveTo(x2, y2);
-      ctx.lineTo(x2 - factorX, y2 + factorY);
-      ctx.moveTo(x2, y2);
-      ctx.lineTo(x2 + factorX, y2 + factorY);
-      ctx.stroke();
-      ctx.closePath();
-    };
-
     var MixinAxis = {
-      arrowX() {
-        var o = this.options,
-            ctx = this.ctx;
-        var padding = expandPadding(o.padding);
-        var x1 = padding.left,
-            y1 = this.viewHeight + padding.top;
-        var x2 = x1 + this.viewWidth,
-            y2 = y1;
-        if (!o.axis.x.arrow) return;
-        var arrow = o.axis.x.arrow;
-        drawArrowX(ctx, [x1, y1, x2, y2, arrow.factorX, arrow.factorY], {
-          color: arrow.color,
-          size: arrow.size,
-          dash: arrow.dash
-        });
-      },
-
       axisX() {
-        var _ref;
+        var _ref, _line$shortLineSize;
 
         var ctx = this.ctx,
             o = this.options;
         var padding = expandPadding(o.padding);
         if (!o.axis.x) return;
-        var axis = o.axis.x;
-        var font = (_ref = axis && axis.label && axis.label.font) !== null && _ref !== void 0 ? _ref : o.font;
-        var step = this.viewWidth / axis.line.count;
-        var textStep = (this.maxX - this.minX) / axis.line.count;
-        var skipLabels = Math.round(axis.line.count / axis.label.count);
+        var axis = o.axis.x,
+            label = axis.label,
+            line = axis.line,
+            arrow = axis.arrow;
+        var font = (_ref = label && label.font) !== null && _ref !== void 0 ? _ref : o.font;
+        var labelStep = label.count ? (this.maxX - this.minX) / label.count : 0;
+        var labelValue,
+            value,
+            k,
+            x,
+            y,
+            labelY,
+            shortLineSize = (_line$shortLineSize = line.shortLineSize) !== null && _line$shortLineSize !== void 0 ? _line$shortLineSize : 0;
+        x = padding.left;
+        y = padding.top;
+        labelY = padding.top + this.viewHeight + font.size + 5;
+        value = this.minX;
+        k = 0;
 
-        for (var i = 0; i <= axis.line.count; i++) {
-          var _ref2, _ref3;
+        for (var i = 0; i <= label.count; i++) {
+          labelValue = typeof label.fixed === "number" ? value.toFixed(label.fixed) : value;
 
-          var x = step * i + padding.left;
-          var labelXValue = this.minX + textStep * i;
-
-          if (typeof axis.label.fixed === "number") {
-            labelXValue = labelXValue.toFixed(axis.label.fixed);
+          if (typeof o.onDrawLabelX === "function") {
+            labelValue = o.onDrawLabelX.apply(null, [value]);
           }
 
-          if (axis.line.show) {
-            drawVector(ctx, [x, padding.top, x, this.viewHeight + padding.top], {
-              color: axis.line.color,
-              size: axis.line.size,
-              dash: axis.line.dash
+          if (label.showLine) {
+            drawVector(ctx, [x, y, x, y + this.viewHeight], {
+              color: line.color,
+              size: line.size,
+              dash: line.dash
             });
           }
 
-          if (!axis.label.show) continue;
-          if (skipLabels && i && i % skipLabels !== 0) continue;
-          if (!axis.label.first && i === 0) continue;
-          if (!axis.label.last && i === axis.line.count) continue;
+          if (label.skip && k !== label.skip) {
+            k++;
+          } else {
+            k = 1;
 
-          if (typeof o.onDrawLabelX === "function") {
-            labelXValue = o.onDrawLabelX.apply(null, [labelXValue]);
-          } // if (x + ctx.measureText(labelXValue.toString()).width > this.viewWidth) continue
+            if (label.showLabel && !(!i && !label.showMin)) {
+              var _label$color, _label$shift$x, _label$shift$y;
 
+              // short line
+              drawVector(ctx, [x, this.viewHeight + padding.top - shortLineSize, x, this.viewHeight + padding.top + shortLineSize], {
+                color: arrow && arrow.color ? arrow.color : line.color
+              }); // label
 
-          drawVector(ctx, [x, this.viewHeight + padding.top, x, this.viewHeight + padding.top + 5], {
-            color: (_ref2 = axis.arrow && axis.arrow.color) !== null && _ref2 !== void 0 ? _ref2 : axis.line.color
-          });
-          drawText(ctx, labelXValue.toString(), [x, this.viewHeight + padding.top + font.size + 5], {
-            color: (_ref3 = axis.label && axis.label.color) !== null && _ref3 !== void 0 ? _ref3 : o.color,
-            align: 'center',
-            font
-          });
+              drawText(ctx, labelValue.toString(), [0, 0], {
+                color: (_label$color = label.color) !== null && _label$color !== void 0 ? _label$color : o.color,
+                align: label.align,
+                font,
+                translate: [x + ((_label$shift$x = label.shift.x) !== null && _label$shift$x !== void 0 ? _label$shift$x : 0), labelY + ((_label$shift$y = label.shift.y) !== null && _label$shift$y !== void 0 ? _label$shift$y : 0)],
+                angle: label.angle
+              });
+            }
+          }
+
+          value += labelStep;
+          x = padding.left + (value - this.minX) * this.ratioX;
         }
       },
 
-      arrowY() {
-        var o = this.options,
-            ctx = this.ctx;
-        var padding = expandPadding(o.padding);
-        var x1 = padding.left,
-            y1 = this.viewHeight + padding.top;
-        var x2 = x1,
-            y2 = padding.top;
-        if (!o.axis.y.arrow) return;
-        var arrow = o.axis.y.arrow;
-        drawArrowY(ctx, [x1, y1, x2, y2, arrow.factorX, arrow.factorY], {
-          color: arrow.color,
-          size: arrow.size,
-          dash: arrow.dash
-        });
-      },
-
       axisY() {
-        var _ref4;
+        var _ref2, _line$shortLineSize2;
 
         var ctx = this.ctx,
             o = this.options;
         var padding = expandPadding(o.padding);
         if (!o.axis.y) return;
-        var axis = o.axis.y;
-        var font = (_ref4 = axis && axis.label && axis.label.font) !== null && _ref4 !== void 0 ? _ref4 : o.font;
-        var step = this.viewHeight / axis.line.count;
-        var textStep = (this.maxY - this.minY) / axis.line.count;
-        var skipLabels = Math.floor(axis.line.count / axis.label.count);
+        var axis = o.axis.y,
+            label = axis.label,
+            line = axis.line,
+            arrow = axis.arrow;
+        var font = (_ref2 = label && label.font) !== null && _ref2 !== void 0 ? _ref2 : o.font;
+        var labelStep = label.count ? (this.maxY - this.minY) / label.count : 0;
+        var labelValue, value, k, x, y, labelX, shortLineX;
+        var shortLineSize = (_line$shortLineSize2 = line.shortLineSize) !== null && _line$shortLineSize2 !== void 0 ? _line$shortLineSize2 : 0;
+        x = padding.left;
+        labelX = padding.left;
+        y = this.viewHeight + padding.top;
+        value = this.minY;
+        k = 0;
 
-        for (var i = 0; i < axis.line.count + 1; i++) {
-          var _ref5, _ref6;
+        if (label.opposite) {
+          labelX += this.viewWidth + 10 + shortLineSize;
+          shortLineX = padding.left + this.viewWidth;
+          label.align = 'left';
+        } else {
+          labelX -= 10;
+          shortLineX = x - shortLineSize;
+        }
 
-          var y = this.viewHeight + padding.top - step * i;
-          var x = padding.left;
-          var labelYValue = this.minY + textStep * i;
+        for (var i = 0; i < label.count + 1; i++) {
+          labelValue = typeof label.fixed === "number" ? value.toFixed(label.fixed) : value;
 
-          if (typeof axis.label.fixed === "number") {
-            labelYValue = labelYValue.toFixed(axis.label.fixed);
+          if (typeof o.onDrawLabelY === "function") {
+            labelValue = o.onDrawLabelY.apply(null, [value]);
           }
 
-          if (axis.line.show) {
+          if (label.showLine) {
             drawVector(ctx, [x, y, this.viewWidth + padding.left, y], {
-              color: axis.line.color,
-              size: axis.line.size,
-              dash: axis.line.dash
+              color: line.color,
+              size: line.size,
+              dash: line.dash
             });
           }
 
-          if (!axis.label.show) continue;
-          if (skipLabels && i && i % skipLabels !== 0) continue;
-          if (!axis.label.first && i === 0) continue;
-          if (!axis.label.last && i === axis.line.count) continue;
+          if (i !== 0 && label.skip && k !== label.skip) {
+            k++;
+          } else {
+            k = 1;
 
-          if (typeof o.onDrawLabelY === "function") {
-            labelYValue = o.onDrawLabelY.apply(null, [labelYValue]);
+            if (label.showLabel && !(!i && !label.showMin)) {
+              var _ref3, _label$shift$x2, _label$shift$y2;
+
+              // short line
+              drawVector(ctx, [shortLineX, y, shortLineX + shortLineSize * 2, y], {
+                color: arrow && arrow.color ? arrow.color : line.color
+              });
+              drawText(ctx, labelValue.toString(), [0, 0], {
+                color: (_ref3 = label && label.color) !== null && _ref3 !== void 0 ? _ref3 : o.color,
+                align: label.align,
+                font,
+                translate: [labelX + ((_label$shift$x2 = label.shift.x) !== null && _label$shift$x2 !== void 0 ? _label$shift$x2 : 0), y + 1 + ((_label$shift$y2 = label.shift.y) !== null && _label$shift$y2 !== void 0 ? _label$shift$y2 : 0)],
+                angle: label.angle
+              });
+            }
           }
 
-          drawVector(ctx, [x - 5, y, x, y], {
-            color: (_ref5 = axis.arrow && axis.arrow.color) !== null && _ref5 !== void 0 ? _ref5 : axis.line.color
-          });
-          drawText(ctx, labelYValue.toString(), [padding.left - 10, y + 1], {
-            color: (_ref6 = axis.label && axis.label.color) !== null && _ref6 !== void 0 ? _ref6 : o.color,
-            align: 'right',
-            font
-          });
+          value += labelStep;
+          y = padding.top + this.viewHeight - (value - this.minY) * this.ratioY;
         }
       },
 
       axisXY() {
-        var o = this.options;
-        if (!o.axis) return;
+        if (!this.options.axis) return;
         this.axisX();
-        this.arrowX();
         this.axisY();
-        this.arrowY();
         return this;
       }
 
     };
 
     var MixinAddPoint = {
-      addPoint(index, _ref) {
-        var [x, y] = _ref;
-        var shift = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : true;
+      addPoint(index, point) {
+        var shift = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : false;
         var o = this.options;
         var data;
-        if (!this.data || !this.data.length) return;
-        data = this.data[index].data;
 
-        if (shift) {
+        if (!this.data) {
+          this.data = [];
+
+          for (var i = 0; i < index + 1; i++) {
+            this.data[i] = [];
+          }
+        }
+
+        data = this.data[index];
+
+        if (shift && data.length) {
           if (!o.graphSize) {
             data = data.slice(1);
           } else {
-            if (data.length === o.graphSize) {
+            if (data.length >= o.graphSize) {
               data = data.slice(1);
             }
           }
         }
 
-        this.data[index].data = data;
-        this.data[index].data.push([x, y]);
-        this.calcMinMax();
-        this.calcRatio();
-        this.resize();
+        this.data[index] = data;
+        this.data[index].push(point);
       }
 
     };
@@ -1273,6 +1314,91 @@
       ctx.closePath();
     };
 
+    var drawArrowX = function drawArrowX(ctx, _ref) {
+      var [x1, y1, x2, y2, factorX, factorY] = _ref;
+      var {
+        color = '#000',
+        dash = [],
+        size = 1
+      } = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
+      ctx.beginPath();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = size;
+      ctx.setLineDash(dash);
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.moveTo(x2, y2);
+      ctx.lineTo(x2 - factorX, y2 - factorY);
+      ctx.moveTo(x2, y2);
+      ctx.lineTo(x2 - factorX, y2 + factorY);
+      ctx.stroke();
+      ctx.closePath();
+    };
+
+    var drawArrowY = function drawArrowY(ctx, _ref) {
+      var [x1, y1, x2, y2, factorX, factorY] = _ref;
+      var {
+        color = '#000',
+        dash = [],
+        size = 1
+      } = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
+      ctx.beginPath();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = size;
+      ctx.setLineDash(dash);
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.moveTo(x2, y2);
+      ctx.lineTo(x2 - factorX, y2 + factorY);
+      ctx.moveTo(x2, y2);
+      ctx.lineTo(x2 + factorX, y2 + factorY);
+      ctx.stroke();
+      ctx.closePath();
+    };
+
+    var MixinArrows = {
+      arrowX() {
+        var o = this.options,
+            ctx = this.ctx;
+        var padding = expandPadding(o.padding);
+        if (!o.arrows.x) return;
+        var arrow = o.arrows.x;
+        var x1 = padding.left,
+            y1 = this.viewHeight + padding.top;
+        var x2 = padding.left + this.viewWidth + arrow.outside,
+            y2 = y1;
+        drawArrowX(ctx, [x1, y1, x2, y2, arrow.factorX, arrow.factorY], {
+          color: arrow.color,
+          size: arrow.size,
+          dash: arrow.dash
+        });
+      },
+
+      arrowY() {
+        var o = this.options,
+            ctx = this.ctx;
+        var padding = expandPadding(o.padding);
+        if (!o.arrows.y) return;
+        var arrow = o.arrows.y;
+        var x = padding.left,
+            y1 = this.viewHeight + padding.top;
+        var y2 = padding.top - arrow.outside;
+        drawArrowY(ctx, [x, y1, x, y2, arrow.factorX, arrow.factorY], {
+          color: arrow.color,
+          size: arrow.size,
+          dash: arrow.dash
+        });
+      },
+
+      arrows() {
+        if (!this.options.arrows) return;
+        this.arrowX();
+        this.arrowY();
+        return this;
+      }
+
+    };
+
     class AreaChart extends Chart {
       constructor(el) {
         var data = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
@@ -1285,10 +1411,12 @@
         this.maxY = 0;
         this.legendItems = [];
         var legend = this.options.legend;
+        var areas = this.options.areas;
+        var colors = this.options.colors;
 
         if (legend) {
           for (var i = 0; i < this.data.length; i++) {
-            this.legendItems.push([this.data[i].name, this.options.colors[i]]);
+            this.legendItems.push([areas[i].name, colors[i]]);
           }
         }
 
@@ -1300,8 +1428,7 @@
         var o = this.options;
         var a = [];
 
-        for (var k in this.data) {
-          var _data = this.data[k].data;
+        for (var _data of this.data) {
           if (!Array.isArray(_data)) continue;
 
           for (var [x, y] of _data) {
@@ -1336,15 +1463,16 @@
         if (!this.data || !this.data.length) return;
 
         var _loop = function _loop(i) {
-          var _graph$color, _graph$fill, _dots$color, _dots$fill, _dots$size;
+          var _area$color, _area$fill, _dots$color, _dots$fill, _dots$size;
 
-          var graph = _this.data[i];
-          var color = (_graph$color = graph.color) !== null && _graph$color !== void 0 ? _graph$color : o.colors[i];
-          var fill = (_graph$fill = graph.fill) !== null && _graph$fill !== void 0 ? _graph$fill : color;
+          var area = o.areas[i];
+          var data = _this.data[i];
+          var color = (_area$color = area.color) !== null && _area$color !== void 0 ? _area$color : o.colors[i];
+          var fill = (_area$fill = area.fill) !== null && _area$fill !== void 0 ? _area$fill : color;
           coords = [];
           coords.push([padding.left, _this.viewHeight + padding.top, 0, 0]);
 
-          for (var [x, y] of graph.data) {
+          for (var [x, y] of data) {
             var _x = Math.floor((x - _this.minX) * _this.ratioX + padding.left);
 
             var _y = Math.floor(_this.viewHeight + padding.top - (y - _this.minY) * _this.ratioY);
@@ -1356,9 +1484,9 @@
           drawArea(ctx, coords, {
             color,
             fill,
-            size: graph.size
+            size: area.size
           });
-          var dots = graph.dots ? graph.dots : {
+          var dots = area.dots ? area.dots : {
             type: 'dot' // dot, square, triangle
 
           };
@@ -1386,15 +1514,15 @@
               drawPointFn = drawCircle;
           }
 
-          if (graph.dots && o.showDots !== false) {
+          if (area.dots && o.showDots !== false) {
             coords.map((_ref) => {
               var [x, y] = _ref;
               drawPointFn(ctx, [x, y, opt.radius], opt);
             });
           }
 
-          _this.coords[graph.name] = {
-            graph,
+          _this.coords[area.name] = {
+            area,
             coords,
             drawPointFn,
             opt
@@ -1402,11 +1530,11 @@
           coords.shift();
           coords.pop();
 
-          if (graph.showLines !== false) {
+          if (area.showLines !== false) {
             drawLine(ctx, coords, {
               color,
               fill,
-              size: graph.size
+              size: area.size
             });
           }
         };
@@ -1471,10 +1599,54 @@
         }
       }
 
+      add(index, _ref2, shift, align) {
+        var [x, y] = _ref2;
+        this.addPoint(index, [x, y], shift);
+        this.minX = this.data[index][0][0];
+        this.maxX = x;
+
+        if (align) {
+          if (isObject(align)) {
+            this.align(align);
+          }
+        } else {
+          if (y < this.minY) this.minY = y;
+          if (y > this.maxY) this.maxY = y;
+        }
+
+        this.resize();
+      }
+
+      align(_ref3) {
+        var {
+          minX,
+          maxX,
+          minY,
+          maxY
+        } = _ref3;
+        var a = [];
+
+        for (var _data of this.data) {
+          if (!Array.isArray(_data)) continue;
+
+          for (var [x, y] of _data) {
+            a.push([x, y]);
+          }
+        }
+
+        var [_minX, _maxX] = minMax(a, 'x');
+        var [_minY, _maxY] = minMax(a, 'y');
+        if (minX) this.minX = _minX;
+        if (minY) this.minY = _minY;
+        if (maxX) this.maxX = _maxX;
+        if (maxY) this.maxY = _maxY;
+      }
+
       draw() {
         super.draw();
         this.calcRatio();
         this.axisXY();
+        this.arrows();
         this.areas();
         this.floatPoint();
         this.cross();
@@ -1485,56 +1657,8 @@
     Object.assign(AreaChart.prototype, MixinCross);
     Object.assign(AreaChart.prototype, MixinAxis);
     Object.assign(AreaChart.prototype, MixinAddPoint);
+    Object.assign(AreaChart.prototype, MixinArrows);
     var areaChart = (el, data, options) => new AreaChart(el, data, options);
-
-    function _defineProperty(obj, key, value) {
-      if (key in obj) {
-        Object.defineProperty(obj, key, {
-          value: value,
-          enumerable: true,
-          configurable: true,
-          writable: true
-        });
-      } else {
-        obj[key] = value;
-      }
-
-      return obj;
-    }
-
-    function ownKeys(object, enumerableOnly) {
-      var keys = Object.keys(object);
-
-      if (Object.getOwnPropertySymbols) {
-        var symbols = Object.getOwnPropertySymbols(object);
-        if (enumerableOnly) symbols = symbols.filter(function (sym) {
-          return Object.getOwnPropertyDescriptor(object, sym).enumerable;
-        });
-        keys.push.apply(keys, symbols);
-      }
-
-      return keys;
-    }
-
-    function _objectSpread2(target) {
-      for (var i = 1; i < arguments.length; i++) {
-        var source = arguments[i] != null ? arguments[i] : {};
-
-        if (i % 2) {
-          ownKeys(Object(source), true).forEach(function (key) {
-            _defineProperty(target, key, source[key]);
-          });
-        } else if (Object.getOwnPropertyDescriptors) {
-          Object.defineProperties(target, Object.getOwnPropertyDescriptors(source));
-        } else {
-          ownKeys(Object(source)).forEach(function (key) {
-            Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key));
-          });
-        }
-      }
-
-      return target;
-    }
 
     var defaultBarChartOptions = {
       groupDistance: 0,
@@ -1545,6 +1669,7 @@
         font: labelFont,
         color: '#000'
       },
+      arrows: defaultArrows,
       onDrawLabel: null
     };
 
@@ -1594,19 +1719,13 @@
 
       calcMinMax() {
         var o = this.options;
-        var a = [],
-            length = 0;
+        var a = [];
 
         for (var k in this.data) {
-          var data = this.data[k].data;
-          a = [].concat(a, data);
+          a = [].concat(a, this.data[k]);
         }
 
-        for (var _k in this.data) {
-          length += this.data[_k].data.length;
-          this.groups++;
-        }
-
+        this.groups = this.data.length;
         var [, max] = minMaxLinear(a);
         this.maxX = this.maxY = o.boundaries && !isNaN(o.boundaries.max) ? o.boundaries.max : max;
         if (isNaN(this.maxX)) this.maxX = 100;
@@ -1614,15 +1733,15 @@
       }
 
       calcRatio() {
-        this.ratio = (this.options.dataAxisX ? this.viewWidth : this.viewHeight) / (this.maxY === this.minY ? this.maxY : this.maxY - this.minY);
+        this.ratioX = this.ratioY = this.ratio = (this.options.dataAxisX ? this.viewWidth : this.viewHeight) / (this.maxY === this.minY ? this.maxY : this.maxY - this.minY);
       }
 
       calcBarWidth() {
         var o = this.options;
         var bars = 0;
 
-        for (var g of this.data) {
-          bars += g.data.length;
+        for (var i = 0; i < this.data.length; i++) {
+          bars += Array.isArray(this.data[i]) ? this.data[i].length : 1;
         }
 
         var availableSpace = (o.dataAxisX ? this.viewHeight : this.viewWidth) - (this.data.length + 1) * o.groupDistance // space between groups
@@ -1633,7 +1752,8 @@
 
       bars() {
         var axisX = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : false;
-        var o = this.options;
+        var o = this.options,
+            bars = o.bars;
         var padding = expandPadding(o.padding);
         var ctx = this.ctx;
         var rect = this.canvas.getBoundingClientRect();
@@ -1654,9 +1774,9 @@
 
         for (var g = 0; g < this.data.length; g++) {
           var graph = this.data[g];
-          var data = graph.data;
+          var data = Array.isArray(graph) ? graph : [graph];
           var labelColor = o.labels.color;
-          var name = graph.name;
+          var name = bars[g];
           var groupWidth = 0;
 
           for (var i = 0; i < data.length; i++) {
@@ -1708,7 +1828,7 @@
             color: labelColor,
             stroke: labelColor,
             font: o.font,
-            angle: axisX ? Math.PI / 2 : 0,
+            angle: axisX ? 90 : 0,
             translate: axisX ? [px - 20, py - groupWidth / 2] : [px - groupWidth / 2, py + 20]
           });
 
@@ -1740,18 +1860,19 @@
         }
 
         this.bars(o.dataAxisX);
-        this.arrowY();
-        this.arrowX();
+        this.arrows();
         this.legend();
       }
 
     }
     Object.assign(BarChart.prototype, MixinAxis);
+    Object.assign(BarChart.prototype, MixinArrows);
     var barChart = (el, data, options) => new BarChart(el, data, options);
 
     var defaultBubbleChartOptions = {
       axis: defaultAxis,
-      cross: defaultCross
+      cross: defaultCross,
+      arrows: defaultArrows
     };
 
     class BubbleChart extends Chart {
@@ -1810,7 +1931,7 @@
         this.ratioZ = this.maxZ / (this.maxZ === this.minZ ? this.maxZ : this.maxZ - this.minZ);
       }
 
-      lines() {
+      bubbles() {
         var o = this.options,
             padding = expandPadding(o.padding);
         var ctx = this.ctx;
@@ -1838,11 +1959,25 @@
         if (!this.data || !this.data.length) return;
       }
 
+      add(index, _ref) {
+        var [x, y, z] = _ref;
+        var shift = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : false;
+        this.addPoint(index, [x, y, z], shift);
+        if (x < this.minX) this.minX = x;
+        if (x > this.maxX) this.maxX = x;
+        if (y < this.minY) this.minY = y;
+        if (y > this.maxY) this.maxY = y;
+        if (z < this.minZ) this.minZ = z;
+        if (z > this.maxZ) this.maxZ = z;
+        this.resize();
+      }
+
       draw() {
         super.draw();
         this.calcRatio();
         this.axisXY();
-        this.lines();
+        this.arrows();
+        this.bubbles();
         this.floatPoint();
         this.cross();
         this.legend();
@@ -1851,42 +1986,24 @@
     }
     Object.assign(BubbleChart.prototype, MixinCross);
     Object.assign(BubbleChart.prototype, MixinAxis);
+    Object.assign(BubbleChart.prototype, MixinArrows);
     var bubbleChart = (el, data, options) => new BubbleChart(el, data, options);
 
     var defaultHistogramOptions = {
       barWidth: 10,
-      axis: defaultAxis,
+      axis: _objectSpread2(_objectSpread2({}, defaultAxis), {}, {
+        x: _objectSpread2(_objectSpread2({}, defaultAxis.x), {}, {
+          arrow: false
+        }),
+        y: _objectSpread2(_objectSpread2({}, defaultAxis.y), {}, {
+          arrow: false
+        })
+      }),
       cross: defaultCross,
       graphSize: 40,
       bars: {
         stroke: '#fff'
       }
-    };
-
-    var MixinAddTriplet = {
-      addTriplet(index, _ref) {
-        var [a, b, c] = _ref;
-        var shift = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : true;
-        var o = this.options;
-        var data;
-        if (!this.data || !this.data.length) return;
-        data = this.data[index].data;
-
-        if (shift) {
-          if (o.graphSize && data.length === o.graphSize) {
-            data = data.slice(1);
-          } else {
-            data = data.slice(1);
-          }
-        }
-
-        this.data[index].data = data;
-        this.data[index].data.push([a, b, c]);
-        this.calcMinMax();
-        this.calcRatio();
-        this.resize();
-      }
-
     };
 
     class HistogramChart extends Chart {
@@ -1901,10 +2018,12 @@
         this.maxY = 0;
         this.legendItems = [];
         var legend = this.options.legend;
+        var bars = this.options.bars;
+        var colors = this.options.colors;
 
         if (legend) {
           for (var i = 0; i < this.data.length; i++) {
-            this.legendItems.push([this.data[i].name, this.options.colors[i]]);
+            this.legendItems.push([bars[i].name, colors[i]]);
           }
         }
 
@@ -1916,8 +2035,7 @@
         var o = this.options;
         var a = [];
 
-        for (var k in this.data) {
-          var _data = this.data[k].data;
+        for (var _data of this.data) {
           if (!Array.isArray(_data)) continue;
 
           for (var [x1, x2, y] of _data) {
@@ -1950,25 +2068,37 @@
         if (!this.data || !this.data.length) return;
 
         for (var i = 0; i < this.data.length; i++) {
-          var graph = this.data[i];
-          var color = o.colors[i];
-          var stroke = graph.stroke || o.bars.stroke;
+          var bar = o.bars[i];
+          var data = this.data[i];
+          var color = bar.color || o.colors[i] || "#000";
+          var stroke = bar.stroke || '#fff';
 
-          for (var [x1, x2, y] of graph.data) {
-            var _x1 = Math.floor((x1 - this.minX) * this.ratioX + padding.left);
+          for (var [x1, x2, y] of data) {
+            var _x = Math.floor((x1 - this.minX) * this.ratioX + padding.left);
 
-            var _x2 = Math.floor((x2 - this.minX) * this.ratioX + padding.left);
+            var _w = Math.floor((x2 - this.minX) * this.ratioX + padding.left) - _x;
 
             var _h = (y - this.minY) * this.ratioY;
 
             var _y = Math.floor(this.viewHeight + padding.top - _h);
 
-            drawRect(ctx, [_x1, _y, _x2 - _x1, _h], {
+            drawRect(ctx, [_x, _y, _w, _h], {
               fill: color,
               color: stroke
             });
           }
         }
+      }
+
+      add(index, _ref) {
+        var [x1, x2, y] = _ref;
+        var shift = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : false;
+        this.addPoint(index, [x1, x2, y], shift);
+        this.minX = this.data[index][0][0];
+        this.maxX = x2;
+        if (y < this.minY) this.minY = y;
+        if (y > this.maxY) this.maxY = y;
+        this.resize();
       }
 
       draw() {
@@ -1983,7 +2113,7 @@
     }
     Object.assign(HistogramChart.prototype, MixinCross);
     Object.assign(HistogramChart.prototype, MixinAxis);
-    Object.assign(HistogramChart.prototype, MixinAddTriplet);
+    Object.assign(HistogramChart.prototype, MixinAddPoint);
     var histogramChart = (el, data, options) => new HistogramChart(el, data, options);
 
     var defaultLineChartOptions = {
@@ -1992,8 +2122,11 @@
       axis: defaultAxis,
       cross: defaultCross,
       showDots: true,
-      type: 'line' // line, curve
-
+      type: 'line',
+      // line, curve
+      accuracy: 2,
+      lines: [],
+      arrows: defaultArrows
     };
 
     var drawCurve = function drawCurve(ctx) {
@@ -2058,10 +2191,12 @@
         this.maxY = 0;
         this.legendItems = [];
         var legend = this.options.legend;
+        var lines = this.options.lines;
+        var colors = this.options.colors;
 
         if (legend) {
-          for (var i = 0; i < this.data.length; i++) {
-            this.legendItems.push([this.data[i].name, this.options.colors[i]]);
+          for (var i = 0; i < lines.length; i++) {
+            this.legendItems.push([lines[i].name, colors[i]]);
           }
         }
 
@@ -2073,8 +2208,7 @@
         var o = this.options;
         var a = [];
 
-        for (var k in this.data) {
-          var _data = this.data[k].data;
+        for (var _data of this.data) {
           if (!Array.isArray(_data)) continue;
 
           for (var [x, y] of _data) {
@@ -2111,12 +2245,13 @@
         var _loop = function _loop(i) {
           var _dots$color, _dots$fill, _dots$size;
 
-          var graph = _this.data[i];
+          var line = o.lines[i];
+          var data = _this.data[i];
           var color = o.colors[i];
-          var type = graph.type || o.type || DEFAULT_LINE_TYPE;
+          var type = line.type || o.type || DEFAULT_LINE_TYPE;
           coords = [];
 
-          for (var [x, y] of graph.data) {
+          for (var [x, y] of data) {
             var _x = Math.floor((x - _this.minX) * _this.ratioX + padding.left);
 
             var _y = Math.floor(_this.viewHeight + padding.top - (y - _this.minY) * _this.ratioY);
@@ -2124,23 +2259,23 @@
             coords.push([_x, _y, x, y]);
           }
 
-          if (graph.showLine !== false) {
+          if (line.showLine !== false) {
             if (type !== DEFAULT_LINE_TYPE) {
               drawCurve(ctx, coords, {
                 color: color,
-                size: graph.size
+                size: line.size
               });
             } else {
               drawLine(ctx, coords, {
                 color: color,
-                size: graph.size
+                size: line.size
               });
             }
           }
 
           var dots = mergeProps({
             type: DEFAULT_DOT_TYPE
-          }, o.dots, graph.dots);
+          }, o.dots, line.dots);
           var opt = {
             color: (_dots$color = dots.color) !== null && _dots$color !== void 0 ? _dots$color : color,
             fill: (_dots$fill = dots.fill) !== null && _dots$fill !== void 0 ? _dots$fill : color,
@@ -2165,15 +2300,15 @@
               drawPointFn = drawCircle;
           }
 
-          if (graph.dots && o.showDots !== false) {
+          if (line.dots && o.showDots !== false) {
             coords.map((_ref) => {
               var [x, y] = _ref;
               drawPointFn(ctx, [x, y, opt.radius], opt);
             });
           }
 
-          _this.coords[graph.name] = {
-            graph,
+          _this.coords[line.name] = {
+            line,
             coords,
             drawPointFn,
             opt
@@ -2240,10 +2375,54 @@
         }
       }
 
+      add(index, _ref2, shift, align) {
+        var [x, y] = _ref2;
+        this.addPoint(index, [x, y], shift);
+        this.minX = this.data[index][0][0];
+        this.maxX = x;
+
+        if (align) {
+          if (isObject(align)) {
+            this.align(align);
+          }
+        } else {
+          if (y < this.minY) this.minY = y;
+          if (y > this.maxY) this.maxY = y;
+        }
+
+        this.resize();
+      }
+
+      align(_ref3) {
+        var {
+          minX,
+          maxX,
+          minY,
+          maxY
+        } = _ref3;
+        var a = [];
+
+        for (var _data of this.data) {
+          if (!Array.isArray(_data)) continue;
+
+          for (var [x, y] of _data) {
+            a.push([x, y]);
+          }
+        }
+
+        var [_minX, _maxX] = minMax(a, 'x');
+        var [_minY, _maxY] = minMax(a, 'y');
+        if (minX) this.minX = _minX;
+        if (minY) this.minY = _minY;
+        if (maxX) this.maxX = _maxX;
+        if (maxY) this.maxY = _maxY;
+      }
+
       draw() {
         super.draw();
         this.calcRatio();
         this.axisXY();
+        this.arrows();
         this.lines();
         this.floatPoint();
         this.cross();
@@ -2254,6 +2433,7 @@
     Object.assign(LineChart.prototype, MixinCross);
     Object.assign(LineChart.prototype, MixinAxis);
     Object.assign(LineChart.prototype, MixinAddPoint);
+    Object.assign(LineChart.prototype, MixinArrows);
     var lineChart = (el, data, options) => new LineChart(el, data, options);
 
     var defaultPieChartOptions = {
@@ -2265,10 +2445,7 @@
         color: '#fff'
       },
       showValue: false,
-      holeSize: 0,
-      legend: {
-        vertical: true
-      },
+      padding: 0,
       onDrawValue: null
     };
 
@@ -2296,12 +2473,13 @@
     class PieChart extends Chart {
       constructor(el, data, options) {
         super(el, data, merge({}, defaultPieChartOptions, options), 'pie');
-        this.total = this.data.reduce((acc, curr) => acc + curr.data, 0);
+        this.total = this.data.reduce((acc, curr) => acc + curr, 0);
         this.legendItems = [];
+        var legend = this.options.legend;
 
-        if (this.options.legend && this.data.length) {
-          for (var i = 0; i < this.data.length; i++) {
-            this.legendItems.push([this.data[i].name, this.options.colors[i]]);
+        if (legend && legend.titles && legend.titles.length) {
+          for (var i = 0; i < legend.titles.length; i++) {
+            this.legendItems.push([legend.titles[i], this.options.colors[i], this.data[i]]);
           }
         }
 
@@ -2311,21 +2489,19 @@
       sectors() {
         var ctx = this.ctx,
             o = this.options;
-            expandPadding(o.padding);
         var [x, y] = this.center;
         var radius = this.radius;
         var startAngle = 0,
             endAngle = 360,
             offset = 0,
-            val = '',
             textVal = '';
         var textX, textY;
         if (!this.data || !this.data.length) return;
 
         for (var i = 0; i < this.data.length; i++) {
-          var sector = this.data[i];
+          var _val = this.data[i];
           var color = o.colors[i];
-          endAngle = 2 * Math.PI * sector.data / this.total;
+          endAngle = 2 * Math.PI * _val / this.total;
           drawSector(ctx, [x, y, radius, startAngle, startAngle + endAngle], {
             fill: color,
             color: color
@@ -2333,29 +2509,26 @@
           startAngle += endAngle;
         }
 
-        if (o.holeSize) {
-          drawCircle(ctx, [x, y, o.holeSize], {
-            color: '#fff'
-          });
-        }
-
         startAngle = 0;
 
         for (var _i = 0; _i < this.data.length; _i++) {
-          var _sector = this.data[_i],
+          var _ref;
+
+          var _val2 = this.data[_i],
               percent = void 0;
-          endAngle = 2 * Math.PI * _sector.data / this.total;
-          offset = o.holeSize / 2;
-          percent = Math.round(_sector.data * 100 / this.total);
-          textVal = o.showValue ? _sector.data : percent + "%";
+          var name = (_ref = this.legendItems[_i] && this.legendItems[_i][0]) !== null && _ref !== void 0 ? _ref : "";
+          endAngle = 2 * Math.PI * _val2 / this.total;
+          offset = 0;
+          percent = Math.round(_val2 * 100 / this.total);
+          textVal = o.showValue ? _val2 : percent + "%";
 
           if (typeof o.onDrawValue === 'function') {
-            textVal = o.onDrawValue.apply(null, [_sector.name, _sector.data, percent]);
+            textVal = o.onDrawValue.apply(null, [name, _val2, percent]);
           }
 
           textX = x + (radius / 2 + offset) * Math.cos(startAngle + endAngle / 2);
           textY = y + (radius / 2 + offset) * Math.sin(startAngle + endAngle / 2);
-          var textW = getTextBoxWidth(ctx, [val + "%"], {
+          var textW = getTextBoxWidth(ctx, [_val2 + "%"], {
             font: o.labels.font
           });
           drawText(ctx, textVal, [textX - textW / 2, textY + o.labels.font.size / 2], {
@@ -2382,8 +2555,9 @@
 
     var defaultStackedBarChartOptions = {
       groupDistance: 0,
-      axis: _objectSpread2({}, defaultAxis),
+      axis: defaultAxis,
       dataAxisX: false,
+      arrows: defaultArrows,
       onDrawLabel: null
     };
 
@@ -2396,6 +2570,8 @@
         this.minY = 0;
         this.minX = 0;
         this.viewAxis = this.options.dataAxisX ? this.viewHeight : this.viewWidth;
+        this.ratioX = 0;
+        this.ratioY = 0;
         this.legendItems = [];
         var legend = this.options.legend;
 
@@ -2425,7 +2601,7 @@
       }
 
       calcRatio() {
-        this.ratio = (this.options.dataAxisX ? this.viewWidth : this.viewHeight) / (this.maxY === this.minY ? this.maxY : this.maxY - this.minY);
+        this.ratio = this.ratioY = this.ratioX = (this.options.dataAxisX ? this.viewWidth : this.viewHeight) / (this.maxY === this.minY ? this.maxY : this.maxY - this.minY);
       }
 
       calcBarWidth() {
@@ -2499,7 +2675,7 @@
             stroke: labelColor,
             font: o.font,
             translate: [px - 20, py - this.barWidth / 2],
-            angle: Math.PI / 2
+            angle: 90
           });
         }
 
@@ -2570,7 +2746,8 @@
             color: labelColor,
             stroke: labelColor,
             font: o.font,
-            translate: [px - o.groupDistance - this.barWidth / 2, py + 20]
+            translate: [px - o.groupDistance - this.barWidth / 2, py + 20],
+            angle: 0
           });
         }
 
@@ -2594,13 +2771,13 @@
           this.barsY();
         }
 
-        this.arrowY();
-        this.arrowX();
+        this.arrows();
         this.legend();
       }
 
     }
     Object.assign(StackedBarChart.prototype, MixinAxis);
+    Object.assign(StackedBarChart.prototype, MixinArrows);
     var stackedBarChart = (el, data, options) => new StackedBarChart(el, data, options);
 
     var gaugeLabel = {
@@ -2656,26 +2833,28 @@
       ctx.closePath();
     };
 
+    var getFillColor = (p, colors) => {
+      var res = '#fff',
+          min = 0;
+
+      for (var i = 0; i < colors.length; i++) {
+        var c = colors[i][0];
+
+        if (p >= min && p <= c) {
+          res = colors[i][1];
+          min = colors[i][0];
+        }
+      }
+
+      return res;
+    };
+
     class Gauge extends Chart {
       constructor(el, data, options) {
         super(el, data, merge({}, defaultGaugeOptions, options), 'gauge');
+        this.min = this.options.boundaries.min;
+        this.max = this.options.boundaries.max;
         this.resize();
-      }
-
-      _getFillColor(p, colors) {
-        var res = '#fff',
-            min = 0;
-
-        for (var i = 0; i < colors.length; i++) {
-          var c = colors[i][0];
-
-          if (p > min && p <= c) {
-            res = colors[i][1];
-            min = colors[i][0];
-          }
-        }
-
-        return res;
       }
 
       gauge() {
@@ -2690,7 +2869,7 @@
             max = PI * (2 + o.endFactor);
         var r = o.radius * this.radius / 100 - o.backWidth;
         var v = this.data[0],
-            p = Math.round(Math.abs(100 * (v - o.boundaries.min) / (o.boundaries.max - o.boundaries.min)));
+            p = Math.round(Math.abs(100 * (v - this.min) / (this.max - this.min)));
         var val = min + (max - min) * p / 100;
         var textVal = p;
         var colors = [];
@@ -2714,7 +2893,7 @@
 
         drawArc(ctx, [x, y, r, min, val], {
           size: o.valueWidth,
-          stroke: this._getFillColor(p, colors)
+          stroke: getFillColor(p, colors)
         });
         drawText(ctx, textVal, [0, 0], {
           align: "center",
@@ -2759,82 +2938,513 @@
     }
     var gauge = (el, data, options) => new Gauge(el, data, options);
 
+    var donutLabel = {
+      font: defaultFont,
+      fixed: false,
+      color: "#000",
+      angle: 0,
+      shift: {
+        x: 0,
+        y: 0
+      }
+    };
+    var defaultDonutOptions = {
+      backStyle: "#a7a7a7",
+      fillStyle: "#8f8",
+      backWidth: 100,
+      valueWidth: 100,
+      radius: 100,
+      boundaries: {
+        min: 0,
+        max: 100
+      },
+      label: donutLabel,
+      padding: 0
+    };
+
     class Donut extends Chart {
       constructor(el, data, options) {
-        super(el, data, merge({}, defaultGaugeOptions, options), 'gauge');
+        super(el, data, merge({}, defaultDonutOptions, options), 'donut');
+        this.total = this.data.reduce((acc, curr) => acc + curr, 0);
+        this.min = this.options.boundaries.min;
+        this.max = this.options.boundaries.max;
+        this.legendItems = [];
+        var legend = this.options.legend;
+
+        if (legend && legend.titles && legend.titles.length) {
+          for (var i = 0; i < legend.titles.length; i++) {
+            this.legendItems.push([legend.titles[i], this.options.colors[i], this.data[i]]);
+          }
+        }
+
         this.resize();
       }
 
       gauge() {
         var ctx = this.ctx,
-            o = this.options,
-            padding = expandPadding(o.padding);
+            o = this.options;
         var [x, y] = this.center;
-        x += padding.left;
-        y += padding.top;
-        var PI = Math.PI,
-            min = PI * o.startFactor,
-            max = PI * (2 + o.endFactor);
-        var r = o.radius * this.radius / 100 - o.backWidth;
-        var v = this.data[0],
-            p = Math.abs(100 * (v - o.boundaries.min) / (o.boundaries.max - o.boundaries.min));
-        var val = min + (max - min) * p / 100;
-        var textVal = p.toFixed(0);
-
-        if (typeof o.onDrawValue === 'function') {
-          textVal = o.onDrawValue.apply(null, [v, p]);
-        }
-
-        drawArc(ctx, [x, y, r, min, max], {
+        var PI = Math.PI;
+        var radius = this.radius - o.backWidth / 2;
+        drawArc(ctx, [x, y, radius, 0, 2 * PI], {
           size: o.backWidth,
           stroke: o.backStyle
         });
-        drawArc(ctx, [x, y, r, min, val], {
-          size: o.valueWidth,
-          stroke: o.fillStyle
-        });
-        drawText(ctx, textVal, [0, 0], {
-          align: "center",
-          baseLine: "middle",
-          color: o.value.color,
-          stroke: o.value.color,
-          font: o.value.font || o.font,
-          translate: [x + o.value.shift.x, y + o.value.shift.y],
-          angle: o.value.angle
-        });
+        var startAngle = 0,
+            endAngle = 0;
 
-        if (o.label.min) {
-          drawText(ctx, o.boundaries.min, [0, 0], {
-            align: "left",
-            baseLine: "middle",
-            color: o.label.min.color,
-            stroke: o.label.min.color,
-            font: o.label.min.font || o.font,
-            translate: [x + r * Math.cos(min) + o.backWidth + o.label.min.shift.x, y + r * Math.sin(min) + o.label.min.shift.y],
-            angle: 0
+        for (var i = 0; i < this.data.length; i++) {
+          var color = o.colors[i];
+          var val = this.data[i];
+          endAngle = 2 * Math.PI * val / this.total;
+          drawArc(ctx, [x, y, radius, startAngle, startAngle + endAngle], {
+            size: o.valueWidth,
+            stroke: color
           });
-        }
 
-        if (o.label.max) {
-          drawText(ctx, o.boundaries.max, [0, 0], {
-            align: "right",
-            baseLine: "middle",
-            color: o.label.max.color,
-            stroke: o.label.max.color,
-            font: o.label.max.font || o.font,
-            translate: [x + r * Math.cos(max) - o.backWidth + o.label.max.shift.x, y + r * Math.sin(max) + o.label.max.shift.y],
-            angle: 0
-          });
+          if (o.label) {
+            var _ref;
+
+            var name = (_ref = this.legendItems[i] && this.legendItems[i][0]) !== null && _ref !== void 0 ? _ref : "";
+            var percent = Math.round(val * 100 / this.total);
+            var textVal = o.showValue ? val : percent + "%";
+            var textX = void 0,
+                textY = void 0;
+
+            if (typeof o.onDrawValue === 'function') {
+              textVal = o.onDrawValue.apply(null, [name, val, percent]);
+            }
+
+            textX = x + radius * Math.cos(startAngle + endAngle / 2);
+            textY = y + radius * Math.sin(startAngle + endAngle / 2);
+            drawText(ctx, textVal, [textX, textY], {
+              color: o.label.color,
+              font: o.label.font
+            });
+          }
+
+          startAngle += endAngle;
         }
       }
 
       draw() {
         super.draw();
         this.gauge();
+        this.legend();
+      }
+
+      resize() {
+        super.resize();
+        this.center = [this.dpiWidth / 2, this.dpiHeight / 2];
       }
 
     }
     var donut = (el, data, options) => new Donut(el, data, options);
+
+    var defaultSegmentOptions = {
+      segment: {
+        count: 100,
+        distance: 4,
+        rowDistance: 4,
+        height: "auto",
+        radius: 0
+      },
+      ghost: {
+        color: "#f1f1f1"
+      },
+      colors: [[70, '#60a917'], [90, '#f0a30a'], [100, '#a20025']],
+      padding: 0,
+      margin: 0
+    };
+
+    var drawRoundedRect = function drawRoundedRect(ctx, _ref) {
+      var [x, y, width, height] = _ref;
+      var {
+        color = '#000',
+        fill = '#fff',
+        size = 1,
+        dash = [],
+        radius = 4
+      } = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
+
+      if (typeof radius === 'number') {
+        radius = {
+          tl: radius,
+          tr: radius,
+          br: radius,
+          bl: radius
+        };
+      } else {
+        var defaultRadius = {
+          tl: 0,
+          tr: 0,
+          br: 0,
+          bl: 0
+        };
+
+        for (var side in defaultRadius) {
+          radius[side] = radius[side] || defaultRadius[side];
+        }
+      }
+
+      ctx.beginPath();
+      ctx.fillStyle = fill;
+      ctx.strokeStyle = color;
+      ctx.moveTo(x + radius.tl, y);
+      ctx.lineTo(x + width - radius.tr, y);
+      ctx.quadraticCurveTo(x + width, y, x + width, y + radius.tr);
+      ctx.lineTo(x + width, y + height - radius.br);
+      ctx.quadraticCurveTo(x + width, y + height, x + width - radius.br, y + height);
+      ctx.lineTo(x + radius.bl, y + height);
+      ctx.quadraticCurveTo(x, y + height, x, y + height - radius.bl);
+      ctx.lineTo(x, y + radius.tl);
+      ctx.quadraticCurveTo(x, y, x + radius.tl, y);
+      ctx.fill();
+      ctx.stroke();
+      ctx.closePath();
+    };
+
+    class Segment extends Chart {
+      constructor(el, data, options) {
+        super(el, data, merge({}, defaultSegmentOptions, options), 'segment');
+        this.min = 0;
+        this.max = 100;
+
+        if (this.options.segment.height !== "auto") {
+          var o = this.options;
+          var s = o.segment;
+          var rowDistance = s.rowDistance * o.dpi;
+          this.options.height = this.data.length * (rowDistance + 1 + s.height);
+        }
+
+        this.resize();
+      }
+
+      segments() {
+        var ctx = this.ctx,
+            o = this.options,
+            s = o.segment;
+        var count = s.count ? s.count : 20;
+        var distance = s.distance * o.dpi;
+        var rowDistance = s.rowDistance * o.dpi;
+        var width = this.viewWidth / count - distance;
+        var colors = [];
+        var padding = expandPadding(o.padding);
+        var x,
+            y = padding.top + distance;
+        var height;
+
+        if (s.height === 'auto') {
+          height = (o.height - rowDistance * this.data.length) / this.data.length;
+        } else {
+          height = s.height;
+        }
+
+        if (typeof o.colors === "string") {
+          colors.push([100, o.colors]);
+        } else if (Array.isArray(o.colors)) {
+          for (var c of o.colors) {
+            colors.push(c);
+          }
+        }
+
+        for (var k = 0; k < this.data.length; k++) {
+          var value = this.data[k];
+          var limit = count * value / 100;
+          x = padding.left + 1;
+
+          for (var i = 0; i < count; i++) {
+            var color = getFillColor(i * 100 / count, colors);
+
+            if (i <= limit) {
+              drawRoundedRect(ctx, [x, y, width, height], {
+                color,
+                fill: color,
+                radius: s.radius
+              });
+            } else {
+              if (o.ghost) {
+                drawRoundedRect(ctx, [x, y, width, height], {
+                  color: o.ghost.color,
+                  fill: o.ghost.color,
+                  radius: s.radius
+                });
+              }
+            }
+
+            x += width + distance;
+          }
+
+          y += height + rowDistance;
+        }
+      }
+
+      setData(data) {
+        var index = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0;
+        var redraw = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : true;
+        this.data[index] = data;
+        if (redraw) this.resize();
+      }
+
+      draw() {
+        super.draw();
+        this.segments();
+      }
+
+    }
+    var segment = (el, data, options) => new Segment(el, data, options);
+
+    var defaultCandlestickOptions = {
+      axis: defaultAxis,
+      boundaries: {
+        minY: 0
+      },
+      candle: {
+        size: 1,
+        width: 'auto',
+        white: 'green',
+        black: 'red',
+        distance: 4,
+        cutoff: false
+      },
+      ghost: {
+        stroke: "#e3e3e3",
+        fill: "#e3e3e3"
+      },
+      arrows: defaultArrows
+    };
+
+    var drawCandle = function drawCandle(ctx, _ref) {
+      var [x, y, h, by, bw, bh] = _ref;
+      var {
+        color = 'red',
+        size = 1,
+        leg = false
+      } = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
+      ctx.beginPath();
+      ctx.save();
+      ctx.setLineDash([]);
+      ctx.lineWidth = size;
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.moveTo(x, y);
+      ctx.lineTo(x, y + h);
+
+      if (leg) {
+        ctx.moveTo(x - bw / 2, y);
+        ctx.lineTo(x + bw / 2, y);
+        ctx.moveTo(x - bw / 2, y + h);
+        ctx.lineTo(x + bw / 2, y + h);
+      }
+
+      ctx.rect(x - bw / 2, by, bw, bh);
+      ctx.stroke();
+      ctx.fill();
+      ctx.restore();
+      ctx.closePath();
+    };
+
+    class CandlestickChart extends Chart {
+      constructor(el, data, options) {
+        super(el, data, merge({}, defaultCandlestickOptions, options), 'candlesticks');
+        this.minY = 0;
+        this.maxY = 0;
+        this.labels = [];
+        this.coords = [];
+        this.calcMinMax();
+        this.resize();
+      }
+
+      calcMinMax() {
+        var o = this.options;
+        var a = [];
+        this.labels.length = 0;
+
+        for (var k in this.data) {
+          var [x, hi, low] = this.data[k];
+          a.push([0, hi]);
+          a.push([0, low]);
+          this.labels.push(x);
+        }
+
+        var [minY, maxY] = minMax(a, 'y');
+        this.minY = o.boundaries && !isNaN(o.boundaries.minY) ? o.boundaries.minY : minY;
+        this.maxY = o.boundaries && !isNaN(o.boundaries.maxY) ? o.boundaries.maxY : maxY;
+      }
+
+      calcRatio() {
+        this.ratioY = this.viewHeight / (this.maxY === this.minY ? this.maxY : this.maxY - this.minY);
+      }
+
+      getCandleSize() {
+        var candle = this.options.candle;
+        var dataLength = this.data.length;
+        return candle.width === 'auto' ? (this.viewWidth - candle.distance * 2 - candle.distance * (dataLength - 1)) / dataLength : candle.width;
+      }
+
+      candlesticks() {
+        // data [x, hi, low, open, close]
+        var ctx = this.ctx,
+            o = this.options,
+            candle = o.candle,
+            ghost = o.ghost;
+        var padding = expandPadding(o.padding);
+        var dataLength = this.data.length;
+        var rect = this.canvas.getBoundingClientRect();
+        var candleSize = this.getCandleSize();
+        var mx,
+            my,
+            tooltip = false;
+
+        if (this.proxy.mouse) {
+          mx = this.proxy.mouse.x - rect.left;
+          my = this.proxy.mouse.y - rect.top;
+        }
+
+        var x = padding.left + candleSize / 2 + candle.distance;
+        this.coords.length = 0;
+
+        for (var i = 0; i < dataLength; i++) {
+          var y = void 0,
+              y2 = void 0,
+              o1 = void 0,
+              c1 = void 0,
+              [xv, hi, low, open, close] = this.data[i];
+          var whiteCandle = close > open;
+          var candleColor = whiteCandle ? candle.white : candle.black;
+          var bx1 = x - candleSize / 2 - candle.distance / 2,
+              bx2 = x + candleSize / 2 + candle.distance / 2;
+          y = padding.top + this.viewHeight - (hi - this.minY) * this.ratioY;
+          y2 = padding.top + this.viewHeight - (low - this.minY) * this.ratioY;
+          o1 = padding.top + this.viewHeight - (open - this.minY) * this.ratioY;
+          c1 = padding.top + this.viewHeight - (close - this.minY) * this.ratioY;
+
+          if (mx >= bx1 && mx <= bx2) {
+            drawRect(ctx, [bx1, padding.top, candleSize + candle.distance, this.viewHeight], {
+              color: ghost.stroke,
+              fill: ghost.fill
+            });
+          }
+
+          drawCandle(ctx, [x, y, y2 - y, o1, candleSize, c1 - o1], {
+            color: candleColor,
+            size: candle.size,
+            leg: candle.leg
+          });
+
+          if (mx >= bx1 && mx <= bx2 && my >= y && my <= y2) {
+            if (o.tooltip) {
+              this.showTooltip(this.data[i], {
+                type: whiteCandle
+              });
+              tooltip = true;
+            }
+          }
+
+          this.coords.push(x);
+          x += candleSize + candle.distance;
+        }
+
+        if (!tooltip && this.tooltip) {
+          this.tooltip.remove();
+          this.tooltip = null;
+        }
+      }
+
+      axis() {
+        var _ref, _line$shortLineSize;
+
+        // draw default axis Y
+        this.axisY(); // draw axis X
+
+        var ctx = this.ctx,
+            o = this.options,
+            candle = o.candle;
+        var padding = expandPadding(o.padding);
+        var axis = o.axis.x,
+            label = axis.label,
+            line = axis.line,
+            arrow = axis.arrow;
+        var font = (_ref = label && label.font) !== null && _ref !== void 0 ? _ref : o.font;
+        var shortLineSize = (_line$shortLineSize = line.shortLineSize) !== null && _line$shortLineSize !== void 0 ? _line$shortLineSize : 0;
+        var candleSize = this.getCandleSize();
+        var x = padding.left + candleSize / 2 + candle.distance,
+            y = padding.top + this.viewHeight;
+        var k = 0;
+
+        for (var i = 0; i < this.labels.length; i++) {
+          var value = this.labels[i];
+          var labelValue = value;
+
+          if (typeof o.onDrawLabelX === "function") {
+            labelValue = o.onDrawLabelX.apply(null, [value]);
+          }
+
+          if (i !== 0 && label.skip && k !== label.skip) {
+            k++;
+          } else {
+            var _label$color, _label$shift$x, _label$shift$y;
+
+            k = 1; // short line
+
+            drawVector(ctx, [x, y - shortLineSize, x, y + shortLineSize], {
+              color: arrow && arrow.color ? arrow.color : line.color
+            }); // label
+
+            drawText(ctx, labelValue.toString(), [0, 0], {
+              color: (_label$color = label.color) !== null && _label$color !== void 0 ? _label$color : o.color,
+              align: label.align,
+              font,
+              translate: [x + ((_label$shift$x = label.shift.x) !== null && _label$shift$x !== void 0 ? _label$shift$x : 0), y + font.size + 5 + ((_label$shift$y = label.shift.y) !== null && _label$shift$y !== void 0 ? _label$shift$y : 0)],
+              angle: label.angle
+            });
+          }
+
+          x += candleSize + candle.distance;
+        }
+      }
+
+      add(_ref2) {
+        var [x, hi, low, open, close] = _ref2;
+        var shift = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
+        var o = this.options;
+        var data;
+
+        if (!this.data) {
+          this.data = [];
+        }
+
+        data = this.data;
+
+        if (shift && data.length) {
+          if (!o.graphSize) {
+            data = data.slice(1);
+          } else {
+            if (data.length >= o.graphSize) {
+              data = data.slice(1);
+            }
+          }
+        }
+
+        this.data = data;
+        this.data.push([x, hi, low, open, close]);
+        this.calcMinMax();
+        this.resize();
+      }
+
+      draw() {
+        super.draw();
+        this.calcRatio();
+        this.axis();
+        this.arrows();
+        this.candlesticks();
+      }
+
+    }
+    Object.assign(CandlestickChart.prototype, MixinAxis);
+    Object.assign(CandlestickChart.prototype, MixinTooltip);
+    Object.assign(CandlestickChart.prototype, MixinArrows);
+    var candlestickChart = (el, data, options) => new CandlestickChart(el, data, options);
 
     globalThis.chart = {
       areaChart,
@@ -2845,7 +3455,9 @@
       pieChart,
       stackedBarChart,
       gauge,
-      donut
+      donut,
+      segment,
+      candlestickChart
     };
 
 }());

@@ -4,12 +4,14 @@ import fs from "fs"
 import path, {dirname} from "path"
 import { fileURLToPath } from 'url'
 import http from "http"
+import https from "https"
 import {sysInfo} from "./system.mjs"
 import {nodeInfo} from "./node.mjs"
 import {getExplorerSummary} from "./explorer.mjs"
 import {processAlerter} from "./alerter.mjs"
 import {processBalanceSend} from "./balance-sender.mjs"
 import {processHello} from "./hello.mjs"
+import {getUptime} from "./uptime.mjs"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const configPath = path.resolve(__dirname, 'config.json')
@@ -22,9 +24,14 @@ const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
 const [SERVER_HOST, SERVER_PORT] = config.host.split(":")
 
 globalThis.restartTimer = 0
+globalThis.restartTimerMax = 0
+globalThis.restartTimerUnv = 0
+globalThis.restartTimerPrev = 0
 globalThis.restartTimerNotSynced = 0
 globalThis.currentBalance = 0
 globalThis.currentHeight = 0
+globalThis.currentControlHeight = 0
+globalThis.controlCounter = 0
 
 const requestListener = async (req, res) => {
     let response
@@ -34,21 +41,25 @@ const requestListener = async (req, res) => {
     res.writeHead(200)
 
     switch (req.url) {
-        case '/os': response = await sysInfo('os'); break;
+        case '/platform': response = await sysInfo('platform'); break;
+        case '/mem': response = await sysInfo('mem'); break;
         case '/cpu': response = await sysInfo('cpu'); break;
         case '/cpu-load': response = await sysInfo('cpu-load'); break;
-        case '/mem': response = await sysInfo('mem'); break;
-        case '/load': response = await sysInfo('load'); break;
-        case '/time': response = await sysInfo('time'); break;
-        case '/static': response = await sysInfo('static'); break;
-        case '/dyn': response = await sysInfo('dyn'); break;
-        case '/net-stat': response = await sysInfo('net-stat'); break;
-        case '/net-conn': response = await sysInfo('net-conn'); break;
+
+        case '/consensus': response = await nodeInfo('consensus', config); break;
+        case '/blockchain': response = await nodeInfo('blockchain', config); break;
         case '/node-status': response = await nodeInfo('node-status', config); break;
         case '/balance': response = await nodeInfo('balance', config); break;
-        case '/blockchain': response = await nodeInfo('blockchain', config); break;
+        case '/block-speed': response = await nodeInfo('block-speed', config); break;
         case '/explorer': response = await getExplorerSummary(); break;
-        case '/consensus': response = await nodeInfo('consensus', config); break;
+        case '/uptime': response = await getUptime(config.publicKey); break;
+        case '/time': response = await sysInfo('time'); break;
+
+        /* */
+        case '/net-stat': response = await sysInfo('net-stat'); break;
+        case '/net-conn': response = await sysInfo('net-conn'); break;
+        /* */
+
         default:
             response = "OK"
     }
@@ -56,10 +67,20 @@ const requestListener = async (req, res) => {
     res.end(JSON.stringify(response))
 }
 
-const server = http.createServer(requestListener)
+let server, useHttps = config.https && (config.https.cert && config.https.key)
+
+if (useHttps) {
+    const ssl_options = {
+        key: fs.readFileSync(__dirname + '/' + config.https.key),
+        cert: fs.readFileSync(__dirname + '/' + config.https.cert)
+    };
+    server = https.createServer(ssl_options, requestListener)
+} else {
+    server = http.createServer(requestListener)
+}
 
 server.listen(+SERVER_PORT, SERVER_HOST, () => {
-    console.log(`Mina Node Server Monitor is running on http://${SERVER_HOST}:${SERVER_PORT}`)
+    console.log(`Mina Monitor Server is running on ${useHttps ? 'https' : 'http'}://${SERVER_HOST}:${SERVER_PORT}`)
 })
 
 setTimeout( () => processHello(config), 0)

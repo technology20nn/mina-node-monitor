@@ -3,32 +3,12 @@ import {getInfo} from "./helpers/get-info"
 import {getFakeTriplets} from "./helpers/get-fake-data"
 import {defaultChartConfig} from "./helpers/chart-config"
 import {imgOk, imgStop} from "./helpers/const";
+import {copy2clipboard} from "./helpers/clipboard";
 
 const graphSize = 20
 let START_NODE_MON = datetime()
 let START_NODE_POINTS = 200
-let peersChart = chart.histogramChart('#peers-load', [
-    {
-        name: "Peers",
-        data: getFakeTriplets(20, 40, 60, 0)
-    },
-], {
-    ...defaultChartConfig,
-    bars: {
-        stroke: '#22272e'
-    },
-    boundaries: {
-        maxY: 200,
-        minY: 0
-    },
-    graphSize,
-    onDrawLabelX: (v) => {
-        return ""
-    },
-    onDrawLabelY: (v) => {
-        return `${v}`
-    }
-})
+let peersChart
 
 const getNodeStatus = async () => await getInfo('node-status')
 const getExplorerSummary = async () => await getInfo('explorer')
@@ -45,10 +25,10 @@ const processBalance = async () => {
 }
 
 const processExplorerSummary = async () => {
-    let explorerSummary = await getExplorerSummary()
     const elLog = $("#log-explorer")
-
     elLog.html(imgStop)
+
+    let explorerSummary = await getExplorerSummary()
 
     if (!explorerSummary || isNaN(explorerSummary.blockchainLength)) {
         return
@@ -60,23 +40,84 @@ const processExplorerSummary = async () => {
 
     elExplorerHeight.text(blockchainLength)
 
-    elBlockHeightPanel.removeClass('alert')
+    elBlockHeightPanel.removeClass('alert warning')
     if (Math.abs(+globalThis.blockchainLength - +blockchainLength) >= 2) {
-        elBlockHeightPanel.addClass('alert')
+        elBlockHeightPanel.addClass('warning')
     }
     elLog.html(imgOk)
-    // console.log("Block height from explorer (re)loaded!")
 }
 
 export const processNodeStatus = async () => {
+    const elLog = $("#log-mina")
+    elLog.html(imgStop)
+
+    if (!peersChart) {
+        peersChart = chart.histogramChart('#peers-load', [
+                getFakeTriplets(20, 40, 60, 0)
+        ], {
+            ...defaultChartConfig,
+            bars: [{
+                name: "Peers",
+                stroke: globalThis.darkMode ? '#22272e' : '#fff',
+                color: Metro.colors.toRGBA('#00AFF0', .5)
+            }],
+            boundaries: {
+                maxY: 100,
+                minY: 0
+            },
+            graphSize,
+            legend: false,
+            axis: {
+                x: {
+                    line: {
+                        color: globalThis.chartLineColor,
+                        shortLineSize: 0
+                    },
+                    label: {
+                        count: 10,
+                        color: globalThis.chartLabelColor,
+                    },
+                    arrow: false
+                },
+                y: {
+                    line: {
+                        color: globalThis.chartLineColor
+                    },
+                    label: {
+                        count: 10,
+                        font: {
+                            size: 10
+                        },
+                        color: globalThis.chartLabelColor,
+                        skip: 2,
+                        fixed: 0
+                    },
+                    arrow: false,
+                }
+            },
+            padding: {
+                left: 30,
+                top: 5,
+                right: 1,
+                bottom: 10
+            },
+            height: 160,
+            onDrawLabelX: (v) => {
+                return ""
+            },
+            onDrawLabelY: (v) => {
+                return `${v}`
+            }
+        })
+    }
+
     let status = await getNodeStatus()
     let reload = globalThis.config.intervals.node
     const UNKNOWN = "UNKNOWN"
-    const elLog = $("#log-mina")
     const secondsInEpoch = 1285200000 / 1000
     const genesisStart = "2021-03-17 02:00:00.000000+02:00"
+    const partLength = 7
 
-    elLog.html(imgStop)
 
     const elements = [
         "peers-count",
@@ -93,7 +134,7 @@ export const processNodeStatus = async () => {
         "snark-worker-fee"
     ]
 
-    elements.forEach( id => $("#"+id).text(UNKNOWN))
+    elements.forEach( id => $("#"+id).html(UNKNOWN))
 
     if (status && status.data && status.data.daemonStatus) {
         globalThis.blockchainLength = 0
@@ -127,32 +168,33 @@ export const processNodeStatus = async () => {
         const elMaxBlock = $("#max-block")
         const elMaxUnvalidated = $("#max-unvalidated")
         const elNodeUptime = $("#node-uptime")
-        const elIpAddress = $("#ip-address")
+        const elIpAddress = $(".ip-address")
         const elBindIp = $("#bind-ip")
         const elP2PPort = $("#p2p-port")
         const elClientPort = $("#client-port")
         const elBlockProducerName = $("#block-producer")
-        const elBlockProducerNameFull = $("#block-producer-full")
         const elSnarkWorkerName = $("#snark-worker")
-        const elSnarkWorkerNameFull = $("#snark-worker-full")
         const elSnarkWorkerFee = $("#snark-worker-fee")
         const elEndOfEpoch = $("#end-of-epoch")
+        const elEpochDuration = $("#epoch-duration")
         const elNodeVersion = $("#node-version")
+        const elCatchupProcess = $(".catchup-process")
 
-        elNodeVersion.text(version)
+        const shortVersion = version.substring(0, partLength) + ' ... ' + version.substring(version.length - partLength)
+        elNodeVersion.text(shortVersion).attr("data-full-name", version)
 
         // node status
         elNetStatus.text(netStatus)
-        elNodeStatus.closest(".panel").removeClass("alert warning")
+        elNodeStatus.closest(".panel").removeClass("alert warning catchup")
         elNodeStatus.text(syncStatus)
         if (syncStatus === 'CATCHUP') {
-            elNodeStatus.closest(".panel").addClass("warning")
+            elNodeStatus.closest(".panel").addClass("catchup")
         } else if (syncStatus !== 'SYNCED') {
             elNodeStatus.closest(".panel").addClass("alert")
         }
 
         START_NODE_POINTS += 10
-        peersChart.addTriplet(0, [START_NODE_POINTS - 10, START_NODE_POINTS, peers.length])
+        peersChart.add(0, [START_NODE_POINTS - 10, START_NODE_POINTS, peers.length], true)
 
         // peers
         // peersChart.addPoint(0, [datetime().time(), peers.length])
@@ -166,7 +208,7 @@ export const processNodeStatus = async () => {
             elNextBlockTime.text(blockDate.format("ddd, DD MMM, HH:mm"))
             elNextBlockLeft.text(`${blockLeft.d} day(s) ${blockLeft.h} hour(s) ${blockLeft.m} minute(s)`)
         } else {
-            elNextBlockTime.text(syncStatus === 'BOOTSTRAP' ? 'No data available' : 'None this epoch')
+            elNextBlockTime.text(syncStatus === 'BOOTSTRAP' ? 'No data available' : 'None this epoch :(')
             elNextBlockLeft.text('')
         }
 
@@ -174,7 +216,11 @@ export const processNodeStatus = async () => {
         const blockLeft = Metro.utils.secondsToTime(
             (datetime(genesisStart).addSecond(secondsInEpoch * (+consensusTimeNow.epoch + 1)).time() - datetime().time()) / 1000
         )
-        elEndOfEpoch.text(`will end in ${blockLeft.d}d ${blockLeft.h}h ${blockLeft.m}m`)
+        const epochDays = blockLeft.d ? blockLeft.d + 'd' : ''
+        const epochHours = blockLeft.h ? blockLeft.h + 'h' : ''
+        const epochMinutes = blockLeft.m ? blockLeft.m + 'm' : ''
+        elEndOfEpoch.html(`${epochDays} ${epochHours} ${epochMinutes}`)
+        elEpochDuration.html(`epoch will end in ${epochDays} ${epochHours} ${epochMinutes}`)
 
 
         // block height
@@ -183,32 +229,45 @@ export const processNodeStatus = async () => {
         elMaxBlock.text(highestBlockLengthReceived)
         elMaxUnvalidated.text(highestUnvalidatedBlockLengthReceived)
 
+        const blockDiff = Math.abs(+blockchainLength - +highestUnvalidatedBlockLengthReceived)
+        elBlockHeight.closest(".panel").removeClass('alert warning')
+        if (syncStatus === 'SYNCED') {
+            if (blockDiff === 2) {
+                elBlockHeight.closest(".panel").addClass('warning')
+            }
+            if (blockDiff > 2) {
+                elBlockHeight.closest(".panel").addClass('alert')
+            }
+        } else {
+            if (syncStatus === 'CATCHUP') {
+                elBlockHeight.closest(".panel").addClass('warning')
+            } else {
+                elBlockHeight.closest(".panel").addClass('alert')
+            }
+        }
+
+
         // uptime
         const uptime = Metro.utils.secondsToTime(uptimeSecs)
         elNodeUptime.html(`${uptime.d}d, ${uptime.h}h ${uptime.m}m`)
 
         // ip address
-        elIpAddress.text(addrsAndPorts.externalIp)
-        elBindIp.text(addrsAndPorts.bindIp)
+        elIpAddress.text(config.showIp ? addrsAndPorts.externalIp : "127.0.0.1")
+        elBindIp.text(config.showIp ? addrsAndPorts.bindIp : "0.0.0.0")
         elP2PPort.text(addrsAndPorts.libp2pPort)
         elClientPort.text(addrsAndPorts.clientPort)
-        if (!config.showIp) {
-            elIpAddress.hide()
-        } else {
-            elIpAddress.show()
-        }
 
         // producer and snark worker
         const noBlockProducer = 'No running block producer'
         const noSnarkWorker = 'No running snark worker'
-        const blockProducerName = !blockProductionKeys.length ? noBlockProducer : blockProductionKeys[0].substring(0, 5) + ' ... ' + blockProductionKeys[0].substring(blockProductionKeys[0].length - 5)
-        const snarkWorkerName = !snarkWorker ? noSnarkWorker : snarkWorker.substring(0, 5) + '...' + snarkWorker.substring(snarkWorker.length - 5)
+        const blockProducerName = blockProductionKeys.length ? blockProductionKeys[0] : ""
+        const snarkWorkerName = snarkWorker ?? ""
+        const shortBlockProducerName = blockProducerName.substring(0, partLength) + ' ... ' + blockProducerName.substring(blockProducerName.length - partLength)
+        const shortSnarkWorkerName = snarkWorkerName.substring(0, partLength) + ' ... ' + snarkWorkerName.substring(snarkWorkerName.length - partLength)
         const snarkWorkerFeeValue = !snarkWorkFee ? '' : ` [ <span class="fg-gray">fee</span> ${(snarkWorkFee / 10**9).toFixed(4)} ]`
 
-        elBlockProducerName.text(blockProducerName)
-        elBlockProducerNameFull.text(blockProductionKeys.length ? blockProductionKeys[0] : noBlockProducer)
-        elSnarkWorkerName.text(snarkWorkerName)
-        elSnarkWorkerNameFull.text(snarkWorker ? snarkWorker : noSnarkWorker)
+        elBlockProducerName.text(blockProducerName ? shortBlockProducerName : noBlockProducer).attr("data-full-name", blockProducerName)
+        elSnarkWorkerName.text(snarkWorkerName ? shortSnarkWorkerName : noSnarkWorker).attr("data-full-name", snarkWorkerName)
         elSnarkWorkerFee.html(snarkWorkerFeeValue)
 
         elLog.html(imgOk)
@@ -223,3 +282,7 @@ export const processNodeStatus = async () => {
     setTimeout(() => processNodeStatus(), reload)
 }
 
+$("#node-version, #block-producer, #snark-worker").on("click", function(){
+    let val = $(this).attr("data-full-name")
+    copy2clipboard(val)
+})

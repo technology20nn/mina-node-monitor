@@ -1,9 +1,10 @@
 <p align="center">
-    <img src="https://metroui.org.ua/res/node-monitor-11-05-2021-2.jpg">
+    <img src="https://metroui.org.ua/res/mina-monitor-banner2.jpg">
 </p> 
 
 # Mina Node Monitor
-**Mina Node Monitor** це `клієнт-серверний` додаток для візуального представлення поточного стану вузла і сигналізації про помилки в його роботі.
+** Mina Node Monitor ** це розширений графічний варіант команди `mina client status` з додатковими показниками.
+Монітор являє собою `клієнт-серверний` додаток для візуального представлення поточного стану вузла і сигналізації про помилки в його роботі.
 
 ## Основні можливості
 1. Відстеження стану вузла в реальному часі
@@ -17,7 +18,7 @@
 - кліент - JavaScript, HTML, CSS
 
 ### Використано компоненти
-+ [x] [Mina Node Monitor]() by [Serhii Pimenov](https://github.com/olton)
++ [x] [Mina Node Monitor](https://github.com/olton/mina-node-monitor) by [Serhii Pimenov](https://github.com/olton)
 + [x] [Metro 4](https://github.com/olton/Metro-UI-CSS) by [Serhii Pimenov](https://github.com/olton)
 + [x] [ChartJS](https://github.com/olton/chartjs) by [Serhii Pimenov](https://github.com/olton)
 + [x] [SystemInformation](https://github.com/sebhildebrandt/systeminformation) by [Sebastian Hildebrandt](https://github.com/sebhildebrandt)
@@ -53,10 +54,11 @@ npm i
 ```json
 {
     "hosts": {
-        "node1": "192.168.1.2:3085"
+        "node1": "xxx.xxx.xxx.xxx:xxxxx"
     },
     "useHost": "node1",
     "showIp": true,
+    "useHttps": false,
     "intervals": {
         "info": 60000,
         "time": 60000,
@@ -64,13 +66,17 @@ npm i
         "node": 30000,
         "net": 2000,
         "mem": 2000,
-        "cpu": 2000
-    }
+        "cpu": 2000,
+        "uptime": 600000
+    },
+    "theme": "auto",
+    "useProxy": false,
+    "proxy": "https://server/proxy.php"
 }
 ```
 
 Секція `hosts` містить інформацію про сервери, на яких встановлена серверна частина Монітору.
-Кожна адреса повинна визначати мережевий інтерфейс та його порт.
+Кожна адреса повинна визначати мережевий інтерфейс/ip та його порт.
 Параметр `useHost` визначає який сервер зі списку в секції` hosts` буде використовуватись.
 Параметр `showIp` визначає показувати чи ні IP адресу в блоці ** Addresses ** (іноді не варто світити IP адресу).
 
@@ -87,6 +93,12 @@ npm i
 - `net` - інтервал оновлення інформації про завантаження мережі: speed, connections
 - `mem` - інтервал оновлення інформації про завантаження оперативної пам'яті сервера
 - `cpu` - інтервал оновлення інформації про завантаження CPU (s)
+- `uptime` - interval for retrieve information about sidecar calculating server uptime
+- `theme` - default `auto` (dark\light mode dependence from os), value can be `dark`, `light`
+
+Section for using proxy (інформацію про проксі-сервер викладено нижче)
+- `useProxy` - use or not proxy server
+- `proxy` - proxy server address
 
 #### Конфігураційний файл для сервера 
 
@@ -95,17 +107,27 @@ npm i
 ```json
 {
     "publicKey": "B62qr...",
-    "telegramToken": "XXXXXXXXXX:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-    "telegramChatID": "XXXXXXXXX, XXXXXXXXX",
-    "telegramChatIDAlert": "XXXXXXXXX, XXXXXXXXX",
-    "balanceSendInterval": 86400000,
-    "alertInterval": 60000,
+    "telegramToken": "XXXXXXXXXX:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    "telegramChatID": "XXXXXXXXX",
+    "telegramChatIDAlert": "XXXXXXXXX",
+    "balanceSendInterval": 300000,
+    "alertInterval": 300000,
     "blockDiff": 2,
     "canRestartNode": true,
-    "restartAfter": 30,
+    "restartAfterMax": 30,
+    "restartAfterUnv": 30,
+    "restartAfterPrev": 4,
+    "restartAfterNotSynced": 30,
     "restartCmd": "systemctl --user restart mina",
-    "host": "192.168.1.2:3085",
-    "graphql": "localhost:3085"
+    "host": "you_ip_address:port",
+    "graphql": "localhost:3085",
+    "https": {
+        "key": "",
+        "cert": ""
+    },
+    "observeExplorer": true,
+    "restartStateException": ["BOOTSTRAP"],
+    "restartStateSyncedRules": ["MAX", "UNV", "PREV"]
 }
 ```
 
@@ -121,8 +143,14 @@ npm i
 - `host` - IP і PORT на якому буде працювати сервер монітора
 - `graphql` - Адреса на якому працює GraphQL вузла
 - `canRestartNode` - Якщо значення цього ключа **true**, сервер може перезапустити вузол міни
-- `restartAfter` - значення в хвилинах, якщо вузол синхронізований, але при цьому відстає по висоті блоків від Mina Explorer протягом зазначеного часу, вузол буде перезапущений
+- `restartAfterMax` - value in minutes, if node synced and height is difference to max block length, node will restart after this interval
+- `restartAfterUnv` - value in minutes, if node synced and height is difference to unvalidated block height, node will restart after this interval
+- `restartAfterPrev` - integer value, how many times the alert must go off before the mine is restarted, if node synced and height is equal to previous retrieved height, monitor trigger this alert. Check will process every 2 alerts period. In the time this value **~ restartAfterPrev * alertInterval * 2**.
 - `restartCmd` - Команда для перезапуска вузла Mina
+- `https` - contains paths to cert and key to create https server
+- `observeExplorer` - observe Explorer block height and alerts if height difference
+- `restartStateException` - exceptions for states to restart node in non-sync
+- `restartStateSyncedRules` - enabled rules to restart in synced
 
 ### Збірка клієнтського додатка
 
@@ -185,7 +213,7 @@ node monitor.mjs
 
 Після того як ви запустили сервер, клієнт може отримувати від нього інформацію.
 
-#### Запуск сервера в якості сервісу
+## Запуск сервера в якості сервісу
 
 Ви можете запустити сервер додатку як сервіс, що б системний демон стежив за його коректної роботою і перезапускати його в разі потреби, наприклад при перезавантаженні сервера.
 Для забезпечення такої функції є готовий файл сервісу `minamon.service`.
@@ -216,3 +244,34 @@ systemctl --user stop minamon
 systemctl --user restart minamon
 systemctl --user status minamon
 ```
+
+## Проксі-сервер
+Якщо ви не хочете надавати прямий доступ до сервера с Mina та серверною частиною Монітора, Ви можете додатково використовувати проксі-сервер.
+Проксі-сервер написано на *PHP*. Це дуже простий скріпт, якій дозволяє переадресувати запит до серверної частини монітора та повернути його клієнтській частині.
+Такій підхід дозволяє надати доступ до сервера Mina та серверній частині Монітора лише з IP проксі-сервера, а моніторинг отримувати з будь-якої іншої IP адреси.
+
+### Налаштування проксі-сервера
+Проксі-сервер **proxy.php** розташовано в папці `proxy/php`. 
+Поряд з файлом проксі-сервера розташовано файл **servers.php* з параметрами серверів де встановлено серверну частину монітора. 
+Це простий масив в якому зазначено парами ключ:значення параметри серверів і які повинні збігатися зі значеннями, 
+зазначеними в параметрі `hosts` конфігураційного файла клієнта (клієнт визначає до якого серверу він хоче звернутися за 
+допомогою ключа `config.useHost` і вказує це значення при запиті до проксі-сервера):
+```php
+return $servers = [
+    "node1" => "127.0.0.1:3085",  // Change to your real server address
+    "node2" => "127.0.0.2:3085",  // Change to your real server address
+    "node3" => "127.0.0.3:3085"   // Change to your real server address
+];
+```
+
+### Встановлення проксі-сервера
+Скопіюйте файли `proxy.php` та `servers.php` із папки `proxy/php` в зручне для вас місце на вашому web сервері.
+В конфігураційному файлі кліента визначте 2 параметри `useProxy`, `proxy`:
+```json
+{
+    ...,
+    "useProxy": true,
+    "proxy": "https://server/proxy.php"
+}
+```
+
