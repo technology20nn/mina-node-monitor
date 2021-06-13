@@ -1,68 +1,125 @@
 import 'regenerator-runtime/runtime' // this required for Parcel
 import {getInfo} from "./helpers/get-info"
 import {getFakeData} from "./helpers/get-fake-data";
-import {merge} from "./helpers/merge";
 import {defaultChartConfig, defaultGaugeConfig} from "./helpers/chart-config";
 import {imgOk, imgStop} from "./helpers/const";
 
-const chartConfig = merge({}, defaultChartConfig, {
-    boundaries: {
-        maxY: 100
-    },
-    onDrawLabelX: (v) => {
-        return `${datetime(+v).format("HH:mm:ss")}`
-    },
-    onDrawLabelY: (v) => {
-        return `${+v}%`
-    }
-})
-
-const cpuChart = chart.lineChart("#cpu-load", [
-    {
-        name: "Tot",
-        data: getFakeData(40)
-    },
-    {
-        name: "Usr",
-        data: getFakeData(40)
-    },
-    {
-        name: "Sys",
-        data: getFakeData(40)
-    }
-], chartConfig);
-
-let cpuGauge
-
-const loadCPUData = async () => {
-    return await getInfo('cpu-load')
-}
+let cpuChart, cpuGauge, cpuSegment
 
 export const processCPUData = async () => {
-    let cpu = await loadCPUData()
     const elLog = $("#log-cpu")
-
     elLog.html(imgStop)
-    if (cpu) {
 
-        let {currentLoad = 0, currentLoadUser = 0, currentLoadSystem = 0} = cpu
+    if (!cpuGauge) {
+        cpuGauge = chart.gauge('#cpu-use', [0], {
+            ...defaultGaugeConfig,
+            backStyle: globalThis.darkMode ? '#1e2228' : '#f0f6fc',
+            padding: 0,
+            onDrawValue: (v, p) => {
+                return +p.toFixed(0) + "%"
+            }
+        })
+    }
 
-        cpuChart.addPoint(1, [datetime().time(), currentLoadUser])
-        cpuChart.addPoint(0, [datetime().time(), currentLoad])
-        cpuChart.addPoint(2, [datetime().time(), currentLoadSystem])
+    if (!cpuChart) {
+        cpuChart = chart.areaChart("#cpu-load", [
+            getFakeData(40)
+        ], {
+            ...defaultChartConfig,
+            height: 100,
+            areas: [
+                {
+                    name: "CPU usage"
+                }
+            ],
+            colors: [Metro.colors.toRGBA('#00AFF0', .5), Metro.colors.toRGBA('#aa00ff', .5)],
+            legend: false,
+            axis: {
+                x: {
+                    line: {
+                        color: globalThis.chartLineColor,
+                        shortLineSize: 0
+                    },
+                    label: {
+                        count: 10,
+                        color: globalThis.chartLabelColor,
+                    },
+                },
+                y: {
+                    line: {
+                        color: globalThis.chartLineColor
+                    },
+                    label: {
+                        count: 10,
+                        color: globalThis.chartLabelColor,
+                        font: {
+                            size: 10
+                        },
+                        skip: 2,
+                    },
+                }
+            },
+            arrows: false,
+            padding: {
+                left: 1,
+                top: 1,
+                right: 1,
+                bottom: 1
+            },
+            boundaries: {
+                maxY: 100,
+                minY: 0
+            },
+            onDrawLabelX: (v) => {
+                return `${datetime(+v).format("HH:mm:ss")}`
+            },
+            onDrawLabelY: (v) => {
+                return `${+v}%`
+            }
+        })
+    }
 
-        if (!cpuGauge) {
-            cpuGauge = chart.gauge('#cpu-use', [currentLoad], {
-                ...defaultGaugeConfig,
-                onDrawValue: (v, p) => {
-                    return +p.toFixed(0) + "%"
+    let cpuLoad = await getInfo('cpu-load')
+
+    if (cpuLoad) {
+
+        let {load = 0, user = 0, sys = 0, loadavg = [0, 0, 0], threads = []} = cpuLoad
+
+        cpuChart.add(0, [datetime().time(), load], true)
+        cpuGauge.setData([load])
+
+        $("#threads-count").html(`${cpuLoad.threads.length} THREADS`)
+
+        if ($("#cpu-load-all").children().length === 0) {
+            cpuSegment = chart.segment("#cpu-load-all", cpuLoad.threads, {
+                height: 100,
+                padding: {
+                    left: 2,
+                    right: 2,
+                    top: 0,
+                    bottom: 0
+                },
+                margin: 0,
+                segment: {
+                    rowDistance: 4,
+                    count: 40
+                },
+                colors: [ [70, '#60a917'], [90, '#f0a30a'], [100, '#a20025'] ],
+                border: {
+                    color: globalThis.chartLineColor
+                },
+                ghost: {
+                    color: globalThis.darkMode ? "rgba(125, 195, 123, .1)" : "#f0f6fc"
                 }
             })
         } else {
-            cpuGauge.setData([currentLoad])
+            cpuLoad.threads.forEach( (v, i) => {
+                cpuSegment.setData(v, i)
+            })
         }
 
-        // console.log("CPU (re)loaded!")
+        $("#loadavg").html(`<span class="text-bold">${loadavg[0]}</span> <span>${loadavg[1]}</span> <span>${loadavg[2]}</span>`)
+
         elLog.html(imgOk)
     }
 

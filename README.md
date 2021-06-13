@@ -1,23 +1,24 @@
 <p align="center">
-    <img src="https://metroui.org.ua/res/node-monitor-11-05-2021-2.jpg">
+    <img src="https://metroui.org.ua/res/mina-monitor-banner2.jpg">
 </p> 
 
 # Mina Node Monitor
-**Mina Node Monitor** is a `client-server` application for visual monitoring of the validator node and alerts when node have a problem.
+**Mina Monitor** is an extended graphical version of the` mina client status` command with additional indicators.
+This is a `client-server` application for visual monitoring of the validator node and alerts when the node has a problem.
 
 ## Key Features
 1. Track the status of a node in real time
 2. Shows 12 parameters: status, uptime, balance, ...
 3. Shows the load on memory, processor, network
-4. Monitors the state of the node and, if the node is out of sync with the main network and / or has switched / is in a status other than SYNCED, sends notifications to Telegram
-5. Restart node when de-sync discovered
+4. Monitors the state of the node and, if the node is out of sync with the main network and / or has switched in a status other than SYNCED, sends notifications to Telegram
+5. Restart node when de-sync discovered. Two types: de-sync, long time not synced with the same block height.
 
 #### Monitor built with a stack:
 - server - NodeJS, JavaScript
 - client - JavaScript, HTML, CSS
 
 ### Credits
-+ [x] [Mina Node Monitor]() by [Serhii Pimenov](https://github.com/olton)
++ [x] [Mina Monitor](https://github.com/olton/mina-node-monitor) by [Serhii Pimenov](https://github.com/olton)
 + [x] [Metro 4](https://github.com/olton/Metro-UI-CSS) by [Serhii Pimenov](https://github.com/olton)
 + [x] [ChartJS](https://github.com/olton/chartjs) by [Serhii Pimenov](https://github.com/olton)
 + [x] [SystemInformation](https://github.com/sebhildebrandt/systeminformation) by [Sebastian Hildebrandt](https://github.com/sebhildebrandt)
@@ -51,9 +52,11 @@ Create file `config.json` in a `client` folder. Example below demonstrate witch 
 ```json
 {
     "hosts": {
-        "node1": "192.168.1.2:3085"
+        "node1": "xxx.xxx.xxx.xxx:xxxx"
     },
     "useHost": "node1",
+    "showIp": true,
+    "useHttps": false,
     "intervals": {
         "info": 60000,
         "time": 60000,
@@ -61,13 +64,17 @@ Create file `config.json` in a `client` folder. Example below demonstrate witch 
         "node": 30000,
         "net": 2000,
         "mem": 2000,
-        "cpu": 2000
-    }
+        "cpu": 2000,
+        "uptime": 600000
+    },
+    "theme": "auto",
+    "useProxy": false,
+    "proxy": "https://server/proxy.php",
 }
 ```
 
 Section `hosts` contain information about your servers addresses. 
-Each address must be an opened network interface on the mina node server.
+Each address must be an opened network interface/ip and port on the mina node server.
 Parameter `useHost` defines host where client retrieves data.
 
 Section `intervals` contain information about intervals (in milliseconds), with which data will be retrieve.
@@ -79,23 +86,41 @@ Section `intervals` contain information about intervals (in milliseconds), with 
 - `net` - interval for retrieve network information: speed, connections
 - `mem` - interval for retrieve information about server memory
 - `cpu` - interval for retrieve information about server CPU(s)
+- `uptime` - interval for retrieve information about sidecar calculating server uptime
+- `theme` - default `auto` (dark\light mode dependence from os), value can be `dark`, `light` 
+  
+Section for using proxy (read about proxy below)
+- `useProxy` - use or not proxy server
+- `proxy` - proxy server address
+
+
 
 #### Config file for server 
 Create file `config.json` in a `server` folder. Example below demonstrate witch data you must create.
 ```json
 {
     "publicKey": "B62qr...",
-    "telegramToken": "XXXXXXXXXX:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-    "telegramChatID": "XXXXXXXXX, XXXXXXXXX",
-    "telegramChatIDAlert": "XXXXXXXXX, XXXXXXXXX",
-    "balanceSendInterval": 86400000,
-    "alertInterval": 60000,
+    "telegramToken": "XXXXXXXXXX:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    "telegramChatID": "XXXXXXXXX",
+    "telegramChatIDAlert": "XXXXXXXXX",
+    "balanceSendInterval": 300000,
+    "alertInterval": 300000,
     "blockDiff": 2,
     "canRestartNode": true,
-    "restartAfter": 30,
+    "restartAfterMax": 30,
+    "restartAfterUnv": 30,
+    "restartAfterPrev": 4,
+    "restartAfterNotSynced": 30,
     "restartCmd": "systemctl --user restart mina",
-    "host": "192.168.1.2:3085",
-    "graphql": "localhost:3085"
+    "host": "you_ip_address:port",
+    "graphql": "localhost:3085",
+    "https": {
+        "key": "",
+        "cert": ""
+    },
+    "observeExplorer": true,
+    "restartStateException": ["BOOTSTRAP"],
+    "restartStateSyncedRules": ["MAX", "UNV", "PREV"]
 }
 ```
 
@@ -109,10 +134,16 @@ where
 - `alertInterval` - the interval with which the server will check node state and send alerts in telegrams
 - `blockDiff` - difference in blocks with MinaExplorer at which an alert will be sent
 - `host` - IP and PORT on which the server will run
-- `graphql` - Mina node GraphQL address
+- `graphql` - Mina node GraphQL address (by default `localhost:3085`)
 - `canRestartNode` - if true, server can restart mina node
-- `restartAfter` - value in minutes, if node synced and height is lower from Mina Explorer within the specified time, node will restart after this interval
+- `restartAfterMax` - value in minutes, if node synced and height is difference to max block length, node will restart after this interval
+- `restartAfterUnv` - value in minutes, if node synced and height is difference to unvalidated block height, node will restart after this interval
+- `restartAfterPrev` - integer value, how many times the alert must go off before the mine is restarted, if node synced and height is equal to previous retrieved height, monitor trigger this alert. Check will process every 2 alerts period. In the time this value **~ restartAfterPrev * alertInterval * 2**. 
 - `restartCmd` - command for restart mina node
+- `https` - contains paths to cert and key to create https server
+- `observeExplorer` - observe Explorer block height and alerts if height difference
+- `restartStateException` - exceptions for states to restart node in non-sync 
+- `restartStateSyncedRules` - enabled rules to restart in synced
 
 ### Build web client
 To build client use command: 
@@ -167,6 +198,8 @@ To run server execute command:
 node monitor.mjs
 ```
 
+## Sever side as Service
+
 Also, you can run server as service. To run as service
 + replace `user-name` with your real server **user name** in `ExecStart` in `minamon.service` file.
 + copy `minamon.service` to `/usr/lib/systemd/user`
@@ -190,4 +223,34 @@ systemctl --user start minamon
 systemctl --user stop minamon
 systemctl --user restart minamon
 systemctl --user status minamon
+```
+
+## Proxy server
+If you do not want to provide direct access to the server with Mina and the server side of the monitor, you can additionally use a proxy server.
+The proxy server is written in **PHP**. This is a very simple script that allows you to redirect the request to the server side of the monitor and return it to the client side.
+This approach allows you to provide access to the Mina server and the server side of the monitor only from the IP proxy server, and receive monitoring from any other IP address.
+
+### Setting up a proxy server
+The proxy server **proxy.php** is located in the `proxy/php` folder.
+Next to the proxy server file there is **servers.php** with the parameters of the servers where the Monitor server part is installed.
+This is a simple array in which the server parameters are specified in key:value pairs, and which must match the values,
+specified in the `hosts` parameter of the client's configuration file (the client determines which server he wants to contact for
+using the key `config.useHost` and specifies this value when requesting a proxy server):
+```php
+return $servers = [
+    "node1" => "127.0.0.1:3085",  // Change to your real server address
+    "node2" => "127.0.0.2:3085",  // Change to your real server address
+    "node3" => "127.0.0.3:3085"   // Change to your real server address
+];
+```
+
+### Setting up a proxy server
+Copy the files `proxy.php` and `servers.php` in the folder `proxy/php` to a convenient location on your web server.
+In the client config file, define 2 parameters `useProxy`,` proxy`:
+```json
+{
+    ...,
+    "useProxy": true,
+    "proxy": "https://server/proxy.php"
+}
 ```
